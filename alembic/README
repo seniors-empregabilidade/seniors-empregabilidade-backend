@@ -1,0 +1,4 @@
+Alembic migrations for Seniors - Empregabilidade.
+
+The versions directory is intentionally empty until confirmed domain models
+require a schema change. Do not create placeholder or empty revisions.

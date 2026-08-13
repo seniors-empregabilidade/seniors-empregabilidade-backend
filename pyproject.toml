@@ -1,0 +1,78 @@
+[project]
+name = "seniors-empregabilidade-backend"
+version = "0.1.0"
+description = "FastAPI backend for Seniors – Empregabilidade"
+requires-python = ">=3.14,<3.15"
+dependencies = [
+    "alembic>=1.19.1",
+    "fastapi>=0.141.1",
+    "psycopg[binary]>=3,<4",
+    "pydantic-settings>=2.15.0",
+    "sqlalchemy>=2,<3",
+    "uvicorn[standard]>=0.52.3",
+]
+
+[dependency-groups]
+dev = [
+    "conventional-pre-commit>=4.4.0",
+    "httpx2>=2.10.0",
+    "mypy>=2.3.0",
+    "pre-commit>=4.6.2",
+    "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.16.3",
+]
+
+[tool.uv]
+required-version = "==0.11.33"
+
+[tool.ruff]
+target-version = "py314"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+
+[tool.mypy]
+python_version = "3.14"
+files = ["app", "tests", "scripts", "alembic"]
+strict = true
+pretty = true
+warn_unreachable = true
+warn_unused_configs = true
+sqlite_cache = false
+
+[tool.pytest.ini_options]
+addopts = [
+    "-ra",
+    "--strict-config",
+    "--strict-markers",
+    "--cov=app",
+    "--cov-branch",
+    "--cov-report=term-missing:skip-covered",
+    "--cov-fail-under=80",
+]
+testpaths = ["tests"]
+pythonpath = ["."]
+markers = [
+    "integration: requires a running PostgreSQL instance",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["app"]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+skip_covered = true
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+]
