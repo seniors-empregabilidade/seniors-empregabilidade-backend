@@ -11,6 +11,7 @@ def test_settings_use_safe_local_defaults(
     tmp_path: Path,
 ) -> None:
     monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("APP_ENV", raising=False)
     monkeypatch.delenv("DATABASE_URL", raising=False)
     monkeypatch.delenv("CORS_ORIGINS", raising=False)
 
