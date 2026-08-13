@@ -85,6 +85,33 @@ The Compose file owns the local PostgreSQL service and persists PostgreSQL 18 da
 
 `alembic/versions` is intentionally empty. Do not create empty or placeholder revisions. After confirmed models exist, import their shared SQLAlchemy metadata in `alembic/env.py`, generate a revision, inspect every operation, and test both upgrade and downgrade behavior.
 
+## Technical structure
+
+The repository is a modular monolith, but it currently defines only technical boundaries:
+
+```text
+.
+├── .github/              # CI, Dependabot, CODEOWNERS, and PR guidance
+├── alembic/              # Migration environment; no revisions exist yet
+├── app/
+│   ├── api/              # Composition of routes under /api/v1
+│   ├── core/             # Settings, errors, logging, and middleware
+│   ├── db/               # SQLAlchemy engine and session infrastructure
+│   ├── health/           # Liveness and PostgreSQL readiness endpoints
+│   └── main.py           # FastAPI application composition
+├── docs/                 # Architecture, ADRs, and engineering policies
+├── scripts/              # Repository validation entry points
+├── tests/                # Technical unit and PostgreSQL integration tests
+├── alembic.ini           # Alembic configuration
+├── compose.yaml          # Local PostgreSQL service
+├── pyproject.toml        # Project metadata and Python tool configuration
+└── uv.lock               # Reproducible dependency lockfile
+```
+
+No domain module is implied by this structure. After entities and workflows are confirmed, add cohesive modules under `app/` based on actual product capabilities. A module may then own its routes, schemas, models, and use cases; do not create global `models`, `schemas`, `services`, or `repositories` folders in advance merely to fill an architectural template.
+
+Keep cross-cutting infrastructure in `app/core` or `app/db` only when it is genuinely shared. Document a lasting domain boundary or significant dependency-direction decision with an ADR before it becomes a convention for the team.
+
 ## Errors and logging
 
 Errors use RFC 9457 `application/problem+json` with an English stable `code` and a request ID. Unexpected errors return safe details and never echo private implementation messages.
