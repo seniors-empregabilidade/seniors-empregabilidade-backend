@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend CI
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:18.4
+        env:
+          POSTGRES_DB: seniors_empregabilidade_test
+          POSTGRES_USER: seniors
+          POSTGRES_PASSWORD: seniors_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U seniors -d seniors_empregabilidade_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      APP_ENV: test
+      DATABASE_URL: postgresql+psycopg://seniors:seniors_test@localhost:5432/seniors_empregabilidade_test
+      LOG_LEVEL: INFO
+      CORS_ORIGINS: '["http://localhost:5173"]'
+      RUN_DATABASE_INTEGRATION_TESTS: "1"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.0.0
+        with:
+          version: 0.11.33
+          enable-cache: true
+
+      - name: Install Python
+        run: uv python install
+
+      - name: Install dependencies
+        run: uv sync --frozen --all-groups
+
+      - name: Validate pull request title
+        if: github.event_name == 'pull_request'
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          printf '%s\n' "$PR_TITLE" > "$RUNNER_TEMP/pr-title"
+          uv run --frozen conventional-pre-commit --strict "$RUNNER_TEMP/pr-title"
+
+      - name: Check formatting
+        run: uv run --frozen ruff format --check .
+
+      - name: Lint
+        run: uv run --frozen ruff check .
+
+      - name: Type-check
+        run: uv run --frozen mypy
+
+      - name: Apply migrations
+        run: uv run --frozen alembic upgrade head
+
+      - name: Run tests with coverage
+        run: uv run --frozen pytest

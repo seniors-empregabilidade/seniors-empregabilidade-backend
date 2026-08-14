@@ -1,0 +1,1 @@
+"""Seniors - Empregabilidade backend application."""

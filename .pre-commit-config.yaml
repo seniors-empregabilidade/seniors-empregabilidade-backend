@@ -1,0 +1,47 @@
+default_install_hook_types:
+  - pre-commit
+  - commit-msg
+  - pre-push
+
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-format
+        name: Ruff format
+        entry: uv run --frozen ruff format
+        language: system
+        types_or:
+          - python
+          - pyi
+
+      - id: ruff-check
+        name: Ruff lint
+        entry: uv run --frozen ruff check --fix
+        language: system
+        types_or:
+          - python
+          - pyi
+
+      - id: mypy
+        name: mypy strict
+        entry: uv run --frozen mypy
+        language: system
+        pass_filenames: false
+
+      - id: conventional-commit
+        name: Conventional Commit message
+        entry: uv run --frozen conventional-pre-commit
+        language: system
+        stages:
+          - commit-msg
+        args:
+          - --strict
+
+      - id: pre-push-validation
+        name: Backend validation
+        entry: uv run --frozen python scripts/validate.py
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages:
+          - pre-push
