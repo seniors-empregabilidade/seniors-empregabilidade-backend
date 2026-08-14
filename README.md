@@ -1,123 +1,148 @@
 # Seniors – Empregabilidade Backend
 
-Backend FastAPI do projeto Seniors – Empregabilidade, desenvolvido pela equipe da AGES. O código-fonte, os contratos da API, os identificadores do banco de dados e os arquivos de configuração permanecem em inglês.
+API do projeto Seniors – Empregabilidade, desenvolvida pela equipe da AGES com FastAPI. Ela recebe requisições do frontend e usa PostgreSQL como banco de dados local.
 
-Este repositório contém somente a base técnica inicial. Entidades, módulos de negócio, autenticação, autorização, auditoria e armazenamento de arquivos serão adicionados apenas depois que seus requisitos forem confirmados.
+## O que já está implementado
 
-## Tecnologias
+O repositório contém a fundação técnica: configuração, conexão com PostgreSQL, tratamento de erros, logs, endpoints de monitoramento, documentação interativa e testes automatizados.
 
-- CPython 3.14
-- FastAPI e Uvicorn
-- PostgreSQL 18.4 em Docker Compose
-- SQLAlchemy 2 com o driver síncrono Psycopg 3
-- Migrações com Alembic
-- Pydantic Settings
-- uv para gerenciar Python e dependências
-- pytest, Ruff, mypy e pre-commit
+Ainda não existem entidades, tabelas, rotas de produto ou módulos de negócio. Autenticação, autorização, auditoria e armazenamento de arquivos também não foram definidos. A futura API do produto está reservada em `/api/v1`.
 
 ## Pré-requisitos
 
-- uv 0.11.33
-- Docker com o plugin Compose
-- Portas `5432` e `8000` disponíveis localmente
+- [Git](https://git-scm.com/downloads), para baixar e versionar o projeto;
+- [uv 0.11.33](https://docs.astral.sh/uv/getting-started/installation/), que gerencia o Python e as dependências;
+- [Docker](https://docs.docker.com/get-started/get-docker/) com Docker Compose, para executar o PostgreSQL local;
+- portas 5432 e 8000 livres.
 
-Python não possui uma classificação oficial de LTS. O repositório fixa a linha atual do Python 3.14 em `.python-version` e restringe o projeto ao Python 3.14.x.
+O projeto usa Python 3.14. O `uv` prepara o ambiente Python e instala as versões registradas no lockfile. Como todos os comandos Python usam `uv run`, você não precisa criar ou ativar um ambiente virtual manualmente.
 
-## Execução local
+Antes de usar `docker compose`, o Docker deve estar em execução. No Windows e no macOS, abra o Docker Desktop e aguarde o mecanismo iniciar. No Linux, confirme que o serviço do Docker está ativo conforme a [documentação oficial](https://docs.docker.com/engine/install/).
+
+## Escolha do terminal
+
+Os comandos `git`, `uv` e `docker compose` são iguais no Windows PowerShell, Windows com WSL, Linux e macOS. Blocos marcados como **Bash** funcionam no Linux, macOS e WSL. Use blocos **PowerShell** no PowerShell do Windows.
+
+WSL é um ambiente Linux dentro do Windows. Escolha um ambiente e mantenha o repositório e os comandos nele: caminhos como `C:\Users\...` pertencem ao PowerShell, enquanto `/home/...` pertence ao WSL. Se usar Docker Desktop com WSL, habilite a integração da distribuição nas configurações do Docker.
+
+## Primeira configuração
+
+Execute uma vez:
 
 ```bash
+git clone https://github.com/seniors-empregabilidade/seniors-empregabilidade-backend.git
+cd seniors-empregabilidade-backend
 uv sync --frozen
-cp .env.example .env
-docker compose up -d postgres
-uv run alembic upgrade head
 uv run pre-commit install --install-hooks
+```
+
+`uv sync --frozen` reproduz o ambiente descrito no lockfile. O último comando instala os hooks para quem contribuirá com código ou documentação; ele não é necessário toda vez que a API iniciar. Hooks são verificações automáticas executadas durante commits e pushes.
+
+## Inicialização diária
+
+Com o Docker em execução, abra um terminal na raiz do repositório e inicie o PostgreSQL:
+
+```bash
+docker compose up -d postgres
+```
+
+Depois, inicie a API:
+
+```bash
 uv run uvicorn app.main:app --reload --no-access-log
 ```
 
-No PowerShell, copie o arquivo de ambiente com:
+O terminal da API permanece ocupado enquanto o servidor está ativo. A opção `--reload` reinicia o servidor automaticamente após alterações no código.
+
+## Como verificar se funcionou
+
+Com a API e o PostgreSQL ativos, abra:
+
+- [http://localhost:8000/health](http://localhost:8000/health): confirma que o processo da API está vivo; deve retornar `{"status":"ok"}`;
+- [http://localhost:8000/ready](http://localhost:8000/ready): confirma que a API também consegue acessar o PostgreSQL; deve retornar `{"status":"ok"}`;
+- [http://localhost:8000/docs](http://localhost:8000/docs): interface no navegador para conhecer e testar os endpoints.
+
+Em termos operacionais, `/health` é a verificação de vida (*liveness*) e `/ready` é a verificação de prontidão (*readiness*). Se `/health` funcionar e `/ready` falhar, a API iniciou, mas o banco provavelmente não está disponível.
+
+## Como parar
+
+No terminal da API, pressione `Ctrl+C`. Depois, pare o PostgreSQL sem apagar os dados:
+
+```bash
+docker compose stop postgres
+```
+
+Para remover os contêineres, a rede e **todos os dados locais do banco**, use `docker compose down --volumes`. Esse comando é destrutivo e só deve ser executado quando esses dados não forem mais necessários.
+
+## Variáveis de ambiente (opcional)
+
+O projeto já possui padrões seguros para desenvolvimento local, então não é necessário criar `.env` no primeiro uso. Para personalizar a configuração, copie o exemplo uma vez:
+
+**Bash (Linux, macOS ou WSL):**
+
+```bash
+cp .env.example .env
+```
+
+**PowerShell:**
 
 ```powershell
 Copy-Item .env.example .env
 ```
 
-A API estará disponível em `http://localhost:8000`. Endpoints técnicos úteis:
+| Variável | Padrão | Finalidade |
+| --- | --- | --- |
+| `APP_ENV` | `local` | Nome do ambiente atual |
+| `DATABASE_URL` | PostgreSQL local do Compose | Endereço de conexão com o banco |
+| `LOG_LEVEL` | `INFO` | Quantidade de detalhes nos logs |
+| `CORS_ORIGINS` | `["http://localhost:5173"]` | Endereços de frontend autorizados no navegador |
 
-- `GET /health`: verifica se o processo está vivo sem consultar o PostgreSQL;
-- `GET /ready`: executa `SELECT 1` no PostgreSQL para verificar prontidão;
-- `GET /docs`: documentação OpenAPI interativa;
-- `GET /openapi.json`: documento OpenAPI.
+Nunca versione credenciais ou configurações de produção. Reinicie a API após alterar `.env`.
 
-A futura API do produto está reservada em `/api/v1`. Ainda não existem rotas de produto.
+## Migrações
 
-## Comandos
+Migrações são alterações versionadas na estrutura do banco. Ainda não existem migrações de produto, portanto o primeiro uso não exige um comando adicional. Quando revisões forem adicionadas em `alembic/versions`, inicie o PostgreSQL e aplique-as com:
 
-| Comando                                                  | Finalidade                                      |
-| -------------------------------------------------------- | ----------------------------------------------- |
-| `docker compose up -d postgres`                          | Inicia o PostgreSQL local                       |
-| `docker compose stop postgres`                           | Para o PostgreSQL sem apagar os dados           |
-| `uv run uvicorn app.main:app --reload --no-access-log`   | Inicia a API localmente                         |
-| `uv run ruff format .`                                   | Formata os arquivos Python                      |
-| `uv run ruff format --check .`                           | Verifica a formatação                           |
-| `uv run ruff check .`                                    | Executa as regras de lint                       |
-| `uv run mypy`                                            | Executa a verificação estrita de tipos          |
-| `uv run pytest`                                          | Executa os testes e exige 80% de cobertura      |
-| `uv run python scripts/validate.py`                      | Executa todos os controles de qualidade         |
-| `uv run alembic upgrade head`                            | Aplica todas as migrações do banco              |
-
-Para remover o banco local e todos os seus dados, execute `docker compose down --volumes`. Esse comando é destrutivo e deve ser usado somente quando os dados locais não forem mais necessários.
-
-## Configuração
-
-O Pydantic valida as variáveis de ambiente e, opcionalmente, um arquivo `.env` local não versionado.
-
-| Variável       | Padrão                    | Finalidade                                                   |
-| -------------- | ------------------------- | ------------------------------------------------------------ |
-| `APP_ENV`      | `local`                   | Ambiente: `local`, `test`, `staging` ou `production`         |
-| `DATABASE_URL` | Banco do Compose local    | URL SQLAlchemy com `postgresql+psycopg`                      |
-| `LOG_LEVEL`    | `INFO`                    | Nível de log do Python                                       |
-| `CORS_ORIGINS` | `["http://localhost:5173"]` | Lista JSON de origens permitidas para o frontend          |
-
-Nunca versione credenciais ou configurações de produção. Os valores de `.env.example` servem apenas para o desenvolvimento local.
-
-## Banco de dados e migrações
-
-O Compose gerencia o PostgreSQL local e persiste os dados da versão 18 em `/var/lib/postgresql`, caminho oficial da imagem para a versão 18 ou superior.
-
-`alembic/versions` está intencionalmente vazio. Não crie migrações vazias ou fictícias. Depois que os modelos forem confirmados, importe os metadados compartilhados do SQLAlchemy em `alembic/env.py`, gere a revisão, inspecione todas as operações e teste tanto o upgrade quanto o downgrade.
-
-## Estrutura técnica
-
-O repositório segue um monólito modular, mas atualmente define somente fronteiras técnicas:
-
-```text
-.
-├── .github/              # CI, Dependabot, CODEOWNERS e orientação para PRs
-├── alembic/              # Ambiente de migrações; ainda sem revisões
-├── app/                  # Somente código entregue na aplicação
-│   ├── api/              # Composição das rotas em /api/v1
-│   ├── core/             # Configuração, erros, logging e middleware
-│   ├── db/               # Engine e sessões do SQLAlchemy
-│   ├── health/           # Endpoints de liveness e readiness do PostgreSQL
-│   └── main.py           # Composição da aplicação FastAPI
-├── docs/                 # Arquitetura, ADRs e políticas de engenharia
-├── scripts/              # Pontos de entrada para validação do repositório
-├── tests/                # Testes técnicos unitários e de integração PostgreSQL
-├── alembic.ini           # Configuração do Alembic
-├── compose.yaml          # Serviço PostgreSQL para desenvolvimento local
-├── pyproject.toml        # Projeto, dependências e configuração das ferramentas
-└── uv.lock               # Lockfile reproduzível das dependências
+```bash
+uv run alembic upgrade head
 ```
 
-Nenhum módulo de domínio está implícito nessa estrutura. Depois que entidades e fluxos forem confirmados, adicione módulos coesos em `app/` com base em capacidades reais do produto. Um módulo poderá ser responsável por suas próprias rotas, schemas, models e casos de uso; não crie pastas globais como `models`, `schemas`, `services` ou `repositories` antecipadamente apenas para preencher um modelo arquitetural.
+Não crie migrações vazias. Consulte [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) e [CONTRIBUTING.md](CONTRIBUTING.md) antes de trabalhar no banco.
 
-Mantenha infraestrutura transversal em `app/core` ou `app/db` somente quando ela for realmente compartilhada. Documente em ADR uma fronteira de domínio duradoura ou uma decisão importante de direção de dependências antes que ela vire convenção para o time.
+## Principais comandos de qualidade
 
-## Erros e logging
+| Comando | O que verifica |
+| --- | --- |
+| `uv run ruff format --check .` | Formatação Python |
+| `uv run ruff check .` | Lint: erros e padrões indesejados |
+| `uv run mypy` | Coerência dos tipos Python |
+| `uv run pytest` | Testes e cobertura mínima de 80% |
+| `uv run python scripts/validate.py` | Todas as verificações locais acima |
 
-Os erros seguem RFC 9457 com o tipo `application/problem+json`, um `code` estável em inglês e um identificador da requisição. Erros inesperados retornam detalhes seguros e nunca expõem mensagens privadas da implementação.
+Os hooks de pre-commit podem formatar arquivos e verificar tipos antes do commit. O pre-push pode demorar porque repete toda a validação antes de enviar mudanças. Eles existem para detectar problemas antes da revisão e da CI. Se não foram instalados, execute uma vez `uv run pre-commit install --install-hooks`; não use `--no-verify`.
 
-A API escreve na saída padrão um evento compacto por requisição, contendo horário UTC, método, template da rota, status, duração e identificador da requisição. As sondas de saúde são omitidas para reduzir ruído. Corpos de requisição, query strings, credenciais, dados pessoais, currículos e certificados nunca devem ser registrados nos logs.
+## Problemas comuns
 
-## Contribuição
+- **`uv`: command not found:** instale o uv pela documentação oficial, abra um terminal novo e confirme com `uv --version`.
+- **`docker`: command not found:** instale o Docker pelo link oficial e abra um terminal novo. `docker compose version` deve reconhecer o plugin Compose.
+- **Docker não está em execução:** abra o Docker Desktop ou inicie o serviço do Docker no Linux; aguarde e tente `docker compose up -d postgres` novamente.
+- **Porta 5432 em uso:** pare outra instalação ou outro contêiner PostgreSQL antes de iniciar o Compose. Verifique contêineres ativos com `docker ps`.
+- **Porta 8000 em uso:** encerre a outra API com `Ctrl+C` ou identifique o processo que ocupa a porta antes de reiniciar.
+- **`/ready` falha ou o frontend não alcança a API:** confirme `docker compose ps`, teste `/health` e `/ready`, verifique `DATABASE_URL` e confirme que o frontend usa `http://localhost:8000/api/v1`.
+- **Dependências não sincronizadas:** execute `uv sync --frozen` na raiz. Não altere o lockfile manualmente.
+- **Hooks não executam:** rode `uv run pre-commit install --install-hooks` na raiz do repositório.
+- **Comando de cópia ou caminho falha no Windows:** confirme se o terminal é PowerShell ou WSL. Use `Copy-Item` e caminhos do Windows no PowerShell; use `cp` e caminhos Linux no WSL.
 
-Antes de contribuir, leia [CONTRIBUTING.md](CONTRIBUTING.md), [AGENTS.md](AGENTS.md) e [docs/AI_USAGE.md](docs/AI_USAGE.md). O contexto arquitetural está em [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), e as decisões aceitas ficam em [docs/adr](docs/adr).
+## Estrutura técnica resumida
+
+- `app/`: aplicação FastAPI e fronteiras técnicas;
+- `alembic/`: infraestrutura de migrações, ainda sem revisões;
+- `tests/`: testes unitários e de integração com PostgreSQL;
+- `scripts/`: validação do repositório;
+- `docs/`: arquitetura, decisões e políticas do projeto.
+
+O backend é um único serviço organizado para receber módulos coesos quando o domínio for confirmado. Detalhes sobre erros, logs, acesso ao banco e limites de domínio estão em [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) e nas [decisões arquiteturais](docs/adr).
+
+## Arquitetura e contribuição
+
+Leia [CONTRIBUTING.md](CONTRIBUTING.md) antes de abrir uma contribuição. Consulte também [AGENTS.md](AGENTS.md), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), as [decisões arquiteturais](docs/adr) e a [política de uso de IA](docs/AI_USAGE.md).
