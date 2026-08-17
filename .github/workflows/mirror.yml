@@ -1,0 +1,20 @@
+name: Mirror to GitLab Self-Managed
+
+on:
+  push:
+    branches:
+      - "**" # Sincroniza qualquer branch enviada
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Push para o GitLab
+        run: |
+          git remote add gitlab "https://oauth2:${{ secrets.GITLAB_TOKEN_BACK }}@tools.ages.pucrs.br/2026-2/2lm-4lm/seniors-empregabilidade/seniors-empregabilidade-backend.git"
+          git push gitlab --all --force
