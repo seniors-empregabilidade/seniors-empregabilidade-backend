@@ -16,5 +16,5 @@ jobs:
 
       - name: Push para o GitLab
         run: |
-          git remote add gitlab "https://oauth2:${{ secrets.GITLAB_TOKEN_FRONT }}@tools.ages.pucrs.br/2026-2/2lm-4lm/seniors-empregabilidade/seniors-empregabilidade-backend.git"
+          git remote add gitlab "https://oauth2:${{ secrets.GITLAB_TOKEN_BACK }}@tools.ages.pucrs.br/2026-2/2lm-4lm/seniors-empregabilidade/seniors-empregabilidade-backend.git"
           git push gitlab --all --force
