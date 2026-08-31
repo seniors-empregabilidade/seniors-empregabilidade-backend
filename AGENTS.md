@@ -39,6 +39,9 @@ Never bypass pre-commit hooks or reduce quality thresholds to make a change pass
 
 ## Implementation rules
 
+- Follow `docs/development/README.md` for product-module layering, domain modeling,
+  DTOs, dependency injection, persistence, errors, and mirrored test organization.
+  Read the indexed rule files for every layer touched by a change.
 - Keep the application a modular monolith. Add domain modules only after their boundaries and entities are confirmed.
 - Keep product endpoints under `/api/v1`; keep liveness and readiness at `/health` and `/ready`.
 - Keep route handlers thin when business use cases exist, but do not create empty repository/service/use-case layers now.
@@ -47,6 +50,11 @@ Never bypass pre-commit hooks or reduce quality thresholds to make a change pass
 - Use `app.core.config.Settings`; do not read environment variables throughout the codebase.
 - Do not create placeholder models, schemas, migrations, seeds, routes, authentication, RBAC, audit tables, or storage adapters.
 - Add a dependency only when the pull request states the concrete problem it solves.
+- Treat SQLAlchemy classes as persistence models. Do not expose them as API DTOs or
+  assume they are behavior-rich domain entities.
+- Keep one principal entity, DTO, value object, policy, service, or adapter per file
+  once that concept has a real responsibility. Do not create empty layers merely to
+  satisfy a directory template.
 
 ## Database and migrations
 

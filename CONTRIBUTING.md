@@ -57,6 +57,11 @@ Use squash merge after all required checks and reviews pass. Do not push directl
 
 Do not add domain entities, repositories, services, use cases, authentication, RBAC, auditing, file storage, cache, background jobs, or migrations before the project confirms the corresponding requirement.
 
+When confirmed behavior requires these concepts, follow the indexed
+[backend development rules](docs/development/README.md). Keep dependencies pointing
+toward domain rules, use Pydantic DTOs at HTTP boundaries, and mirror production
+modules under `tests/`.
+
 A new dependency must solve a specific problem that the standard library or current stack does not solve simply. Explain that problem in the pull request.
 
 ## Database changes
