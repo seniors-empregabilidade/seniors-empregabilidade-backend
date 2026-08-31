@@ -1,0 +1,1 @@
+"""Company registration capability."""
