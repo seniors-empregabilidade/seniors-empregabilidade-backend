@@ -18,7 +18,14 @@ One deployable API process owns the confirmed product modules. PostgreSQL is the
 - `app/db`: shared metadata, synchronous sessions, domain models, and readiness
 - `app/health`: liveness and readiness endpoints
 
-The confirmed data model currently remains in one cohesive model module. Product modules, routers, and use cases will be introduced only when confirmed behavior reveals useful boundaries.
+The confirmed data model uses one SQLAlchemy persistence model per file under a
+shared `app.db.models` package and metadata object. Product modules, routers, and
+use cases are introduced only when confirmed behavior reveals useful boundaries.
+
+Detailed rules for introducing those boundaries are indexed in
+[`docs/development/README.md`](development/README.md). They adapt Clean Architecture
+and domain-modeling practices to this synchronous FastAPI modular monolith without
+requiring speculative layers.
 
 ## HTTP contract
 
