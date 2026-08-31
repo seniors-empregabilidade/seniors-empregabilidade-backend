@@ -15,10 +15,10 @@ One deployable API process owns the confirmed product modules. PostgreSQL is the
 - `app/main.py`: application composition and middleware registration
 - `app/api`: versioned API router composition
 - `app/core`: configuration, problem details, logging, and request context
-- `app/db`: engine and database readiness infrastructure
+- `app/db`: shared metadata, synchronous sessions, domain models, and readiness
 - `app/health`: liveness and readiness endpoints
 
-No domain boundary is claimed yet. Models, schemas, routes, repositories, services, and use cases will be introduced only when confirmed entities and behavior reveal useful module boundaries.
+The confirmed data model currently remains in one cohesive model module. Product modules, routers, and use cases will be introduced only when confirmed behavior reveals useful boundaries.
 
 ## HTTP contract
 
@@ -28,7 +28,9 @@ Failures use RFC 9457 `application/problem+json` with `type`, `title`, HTTP `sta
 
 ## Data access
 
-SQLAlchemy 2 uses synchronous sessions and Psycopg 3. Alembic owns schema evolution. The migration directory is empty because no schema has been confirmed. A shared declarative base and session lifecycle will be added with the first real model rather than as unused abstractions.
+SQLAlchemy 2 uses one shared declarative base and synchronous session lifecycle through Psycopg 3. Alembic owns schema evolution. PostgreSQL-native enums, UUID arrays, JSONB, checks, deferrable foreign keys, and deletion behavior are defined consistently in the models and initial migration.
+
+The local/test-only seed uses deterministic UUIDs and one transaction. It is idempotent and non-destructive, contains only synthetic identities and `.invalid` URLs, and stores passwords with the same shared Argon2id service used by product code.
 
 SQLite is not a supported substitute. Unit tests isolate technical probes where useful; CI exercises readiness and migrations against PostgreSQL 18.4.
 

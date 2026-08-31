@@ -4,6 +4,10 @@ from sqlalchemy import engine_from_config, pool
 
 from alembic import context
 from app.core.config import get_settings
+from app.db import models as models
+from app.db.base import Base
+
+assert models
 
 config = context.config
 
@@ -15,9 +19,7 @@ config.set_main_option(
     get_settings().database_url.replace("%", "%%"),
 )
 
-# Import the declarative Base and assign Base.metadata here after confirmed
-# domain models exist. No speculative model module is created at bootstrap time.
-target_metadata = None
+target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:

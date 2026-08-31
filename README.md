@@ -4,9 +4,9 @@ API do projeto Seniors – Empregabilidade, desenvolvida pela equipe da AGES com
 
 ## O que já está implementado
 
-O repositório contém a fundação técnica: configuração, conexão com PostgreSQL, tratamento de erros, logs, endpoints de monitoramento, documentação interativa e testes automatizados.
+O repositório contém a fundação técnica e de dados: configuração, conexão com PostgreSQL, schema do domínio, tratamento de erros, logs, endpoints de monitoramento, documentação interativa e testes automatizados.
 
-Ainda não existem entidades, tabelas, rotas de produto ou módulos de negócio. Autenticação, autorização, auditoria e armazenamento de arquivos também não foram definidos. A futura API do produto está reservada em `/api/v1`.
+Ainda não existem rotas de produto nem fluxos de autenticação ou autorização. A futura API do produto está reservada em `/api/v1`.
 
 ## Pré-requisitos
 
@@ -101,13 +101,37 @@ Nunca versione credenciais ou configurações de produção. Reinicie a API apó
 
 ## Migrações
 
-Migrações são alterações versionadas na estrutura do banco. Ainda não existem migrações de produto, portanto o primeiro uso não exige um comando adicional. Quando revisões forem adicionadas em `alembic/versions`, inicie o PostgreSQL e aplique-as com:
+Migrações são alterações versionadas na estrutura do banco. Depois de iniciar o PostgreSQL, aplique o schema com:
 
 ```bash
 uv run alembic upgrade head
 ```
 
-Não crie migrações vazias. Consulte [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) e [CONTRIBUTING.md](CONTRIBUTING.md) antes de trabalhar no banco.
+Para desfazer a migration inicial em um banco local descartável:
+
+```bash
+uv run alembic downgrade base
+```
+
+Não crie migrações vazias nem altere migrations já integradas. Consulte [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) e [CONTRIBUTING.md](CONTRIBUTING.md) antes de trabalhar no banco.
+
+## Dados locais de demonstração
+
+Depois da migration, carregue dados sintéticos e relacionados de todos os domínios com:
+
+```bash
+uv run python -m scripts.seed
+```
+
+O seed aceita somente `APP_ENV=local` ou `APP_ENV=test`, executa em uma única transação e pode ser repetido sem alterar ou apagar dados existentes. Ele usa apenas identidades sintéticas e URLs `.invalid`.
+
+As três contas locais usam a senha `LocalDemoOnly!2026`, exclusivamente para desenvolvimento:
+
+- `candidate@example.invalid`;
+- `representative@company.example.invalid`;
+- `administrator@example.invalid`.
+
+Essas credenciais nunca devem ser usadas fora dos ambientes local e de teste.
 
 ## Principais comandos de qualidade
 
@@ -136,7 +160,7 @@ Os hooks de pre-commit podem formatar arquivos e verificar tipos antes do commit
 ## Estrutura técnica resumida
 
 - `app/`: aplicação FastAPI e fronteiras técnicas;
-- `alembic/`: infraestrutura de migrações, ainda sem revisões;
+- `alembic/`: migrations versionadas do PostgreSQL;
 - `tests/`: testes unitários e de integração com PostgreSQL;
 - `scripts/`: validação do repositório;
 - `docs/`: arquitetura, decisões e políticas do projeto.
