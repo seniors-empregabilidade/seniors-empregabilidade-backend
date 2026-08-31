@@ -1,0 +1,1 @@
+"""Company domain rules."""

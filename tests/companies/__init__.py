@@ -1,0 +1,1 @@
+"""Company capability tests."""
