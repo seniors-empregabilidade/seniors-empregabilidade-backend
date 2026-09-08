@@ -1,5 +1,8 @@
+import argparse
+from collections.abc import Sequence
 from datetime import UTC, date, datetime
 from decimal import Decimal
+from typing import Final
 from uuid import NAMESPACE_URL, UUID, uuid5
 
 from sqlalchemy.dialects.postgresql import insert
@@ -28,7 +31,18 @@ from app.db.models import (
 )
 from app.db.session import get_session_factory
 
+DemoUsers = tuple[tuple[str, str, str], ...]
+
 DEMO_PASSWORD = "LocalDemoOnly!2026"
+# Synthetic defaults. Amazon Cognito owns the password, so a local sign-in only
+# works when app_user holds the same address as the account in the user pool.
+# Override the addresses with the command line options instead of editing this
+# tuple, so real addresses never enter the repository.
+DEMO_USERS: Final = (
+    ("user-candidate", "candidate@example.invalid", "candidate"),
+    ("user-company", "representative@company.example.invalid", "company"),
+    ("user-administrator", "administrator@example.invalid", "administrator"),
+)
 SEED_NAMESPACE = uuid5(NAMESPACE_URL, "https://seniors.example.invalid/seed/v1")
 
 
@@ -40,7 +54,21 @@ def add_if_missing(session: Session, model: type[object], **values: object) -> N
     session.execute(insert(model).values(**values).on_conflict_do_nothing())
 
 
-def seed_database(session: Session) -> None:
+def add_user(session: Session, **values: object) -> None:
+    """Insert a demo account, keeping its address in step on later runs.
+
+    Every other table is insert-only, but the address is the join key to the
+    Cognito user pool, so re-running with a different one has to move it.
+    """
+    statement = insert(AppUser).values(**values)
+    session.execute(
+        statement.on_conflict_do_update(
+            index_elements=["id"], set_={"email": statement.excluded.email}
+        )
+    )
+
+
+def seed_database(session: Session, users: DemoUsers = DEMO_USERS) -> None:
     now = datetime(2026, 1, 1, tzinfo=UTC)
     password_hash = hash_password(DEMO_PASSWORD)
     candidate_id = seed_id("user-candidate")
@@ -73,15 +101,10 @@ def seed_database(session: Session) -> None:
         type="hard",
         created_at=now,
     )
-    for user_id, email, user_type in (
-        (candidate_id, "candidate@example.invalid", "candidate"),
-        (company_id, "representative@company.example.invalid", "company"),
-        (administrator_id, "administrator@example.invalid", "administrator"),
-    ):
-        add_if_missing(
+    for seed_name, email, user_type in users:
+        add_user(
             session,
-            AppUser,
-            id=user_id,
+            id=seed_id(seed_name),
             email=email,
             password_hash=password_hash,
             user_type=user_type,
@@ -261,13 +284,37 @@ def seed_database(session: Session) -> None:
     )
 
 
-def main() -> None:
+def parse_users(argv: Sequence[str] | None = None) -> DemoUsers:
+    """Resolve the demo addresses, letting each one be replaced from the CLI."""
+    parser = argparse.ArgumentParser(
+        description=(
+            "Seed synthetic local data. Pass the addresses of your Cognito "
+            "accounts to sign in locally without committing them."
+        )
+    )
+    for seed_name, default, _user_type in DEMO_USERS:
+        parser.add_argument(
+            f"--{seed_name.removeprefix('user-')}-email",
+            default=default,
+            metavar="EMAIL",
+            help=f"Address for the {seed_name.removeprefix('user-')} account.",
+        )
+    arguments = parser.parse_args(argv)
+    chosen = vars(arguments)
+    return tuple(
+        (seed_name, chosen[f"{seed_name.removeprefix('user-')}_email"], user_type)
+        for seed_name, _default, user_type in DEMO_USERS
+    )
+
+
+def main(argv: Sequence[str] | None = None) -> None:
     settings = get_settings()
     if settings.app_env not in {"local", "test"}:
         raise RuntimeError("Seed is allowed only in local and test environments")
 
+    users = parse_users(argv)
     with get_session_factory().begin() as session:
-        seed_database(session)
+        seed_database(session, users)
 
 
 if __name__ == "__main__":

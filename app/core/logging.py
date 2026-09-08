@@ -48,3 +48,8 @@ def configure_logging(level: str) -> None:
     logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("httpx2").setLevel(logging.WARNING)
+    # Botocore logs full request bodies at DEBUG, including the Cognito
+    # USERNAME and PASSWORD auth parameters. Never let LOG_LEVEL=DEBUG leak them.
+    logging.getLogger("botocore").setLevel(logging.WARNING)
+    logging.getLogger("boto3").setLevel(logging.WARNING)
+    logging.getLogger("urllib3").setLevel(logging.WARNING)

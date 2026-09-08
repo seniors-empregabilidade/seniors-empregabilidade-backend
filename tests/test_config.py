@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import pytest
-from pydantic import ValidationError
+from pydantic import SecretStr, ValidationError
 
 from app.core.config import DEFAULT_DATABASE_URL, Settings
 
@@ -47,3 +47,16 @@ def test_settings_reject_a_non_psycopg_database_url(
     monkeypatch.chdir(tmp_path)
     with pytest.raises(ValidationError, match="postgresql\\+psycopg"):
         Settings(database_url="sqlite:///local.db")
+
+
+def test_the_cognito_client_secret_is_not_printable(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    settings = Settings(cognito_client_secret=SecretStr("super-secret-value"))
+
+    assert "super-secret-value" not in repr(settings)
+    assert settings.cognito_client_secret is not None
+    assert settings.cognito_client_secret.get_secret_value() == "super-secret-value"

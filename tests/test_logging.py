@@ -1,6 +1,6 @@
 import logging
 
-from app.core.logging import KeyValueFormatter
+from app.core.logging import KeyValueFormatter, configure_logging
 from app.core.middleware import normalize_request_id
 
 
@@ -38,3 +38,12 @@ def test_request_id_normalization_preserves_only_safe_values() -> None:
     assert normalize_request_id("safe-request_123.test") == ("safe-request_123.test")
     assert normalize_request_id("unsafe request") != "unsafe request"
     assert normalize_request_id(None)
+
+
+def test_aws_client_logging_cannot_leak_credentials_at_debug_level() -> None:
+    # Botocore logs full request bodies at DEBUG, which for a sign-in would
+    # include the Cognito USERNAME and PASSWORD parameters in cleartext.
+    configure_logging("DEBUG")
+
+    for name in ("botocore", "boto3", "urllib3"):
+        assert logging.getLogger(name).getEffectiveLevel() == logging.WARNING
