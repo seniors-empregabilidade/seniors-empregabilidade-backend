@@ -2,11 +2,29 @@
 
 ## Working language
 
-Source code, identifiers, database names, API fields, stable error codes, configuration, branches, commits, pull request titles and descriptions, reviews, and technical documentation must be in English. Future user-facing interface text belongs to the frontend and is written in Brazilian Portuguese.
+Source code, identifiers, database names, API fields, stable error codes, configuration, branches, commits, pull request titles and descriptions, and technical documentation must be in English. Future user-facing interface text belongs to the frontend and is written in Brazilian Portuguese.
+
+Code review comments are written in Brazilian Portuguese. A review is a conversation between people on this team, and the goal is that the author understands the point and can act on it. Quote identifiers, file paths, error codes and commands in English, as they appear in the code.
 
 ## Branches and commits
 
-Create short-lived branches from an up-to-date `main`. Use a descriptive lowercase name with one of these prefixes:
+Create short-lived branches from an up-to-date `main`.
+
+A branch that implements a task from the board carries that task's identifier, so the branch, the card and the pull request can be traced to one another:
+
+```text
+CU-<task id>_<US-XX-TYY>-<short-description>_<Author-Name>
+```
+
+For example:
+
+```text
+CU-86e308wpb_US-04-T01-Endpoint-de-cadastro-do-profissional-BACK_Arthur-Ramos-Kasprzak
+```
+
+A full-stack task uses the same identifier in both repositories, so its two halves stay linked.
+
+Work with no card on the board uses a descriptive lowercase name with one of these prefixes:
 
 - `feat/` for product functionality
 - `fix/` for corrections

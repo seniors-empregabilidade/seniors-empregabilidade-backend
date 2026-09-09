@@ -20,7 +20,9 @@ Do not replace or duplicate these choices without an approved architectural deci
 
 ## Language
 
-Write code, identifiers, API fields, database identifiers, stable error codes, comments, configuration, tests, branches, commits, pull requests, reviews, logs, and technical documentation in English.
+Write code, identifiers, API fields, database identifiers, stable error codes, comments, configuration, tests, branches, commits, pull requests, logs, and technical documentation in English.
+
+Write code review comments in Brazilian Portuguese, quoting identifiers, paths, error codes and commands in English as they appear in the code.
 
 ## Commands
 
