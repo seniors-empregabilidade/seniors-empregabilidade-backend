@@ -2,7 +2,9 @@
 
 ## Working language
 
-Source code, identifiers, database names, API fields, stable error codes, configuration, branches, commits, pull request titles and descriptions, and technical documentation must be in English. Future user-facing interface text belongs to the frontend and is written in Brazilian Portuguese.
+Source code, identifiers, database names, API fields, stable error codes, configuration, branches, commits, and technical documentation must be in English. Future user-facing interface text belongs to the frontend and is written in Brazilian Portuguese.
+
+Pull request titles and descriptions are written in Brazilian Portuguese. A pull request is addressed to this team, and the goal is that any teammate understands what changed and why without translating it first. Keep the Conventional Commits type prefix in English (`feat:`, `fix:`, `docs:`) and write the subject in Portuguese. Quote identifiers, file paths, error codes and commands in English, as they appear in the code.
 
 Code review comments are written in Brazilian Portuguese. A review is a conversation between people on this team, and the goal is that the author understands the point and can act on it. Quote identifiers, file paths, error codes and commands in English, as they appear in the code.
 
