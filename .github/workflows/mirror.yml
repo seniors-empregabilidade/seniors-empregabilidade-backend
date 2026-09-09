@@ -1,9 +1,10 @@
 name: Mirror to GitLab Self-Managed
 
 on:
-  push:
-    branches:
-      - "**" # Sincroniza qualquer branch enviada
+  workflow_dispatch: # Espelhamento pausado temporariamente (falhas de 524 no GitLab); disparo manual até ser reconfigurado
+  # push:
+  #   branches:
+  #     - "**" # Sincroniza qualquer branch enviada
 
 jobs:
   mirror:
