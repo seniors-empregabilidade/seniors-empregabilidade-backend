@@ -7,6 +7,7 @@ from app.db.models.candidate import Candidate
 from app.db.models.certification import Certification
 from app.db.models.company import Company
 from app.db.models.education import Education
+from app.db.models.email_verification_request import EmailVerificationRequest
 from app.db.models.enums import (
     AccountStatus,
     ApplicationStatus,
@@ -45,6 +46,7 @@ __all__ = [
     "Company",
     "CompanyStatus",
     "Education",
+    "EmailVerificationRequest",
     "EmploymentStatus",
     "Event",
     "Experience",

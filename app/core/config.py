@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import AnyHttpUrl, Field, field_validator
+from pydantic import AnyHttpUrl, Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DEFAULT_DATABASE_URL = (
@@ -23,6 +23,10 @@ class Settings(BaseSettings):
     cors_origins: list[AnyHttpUrl] = Field(
         default_factory=lambda: [AnyHttpUrl("http://localhost:5173")]
     )
+    cognito_region: str = "us-east-1"
+    cognito_user_pool_id: str = ""
+    cognito_client_id: str = ""
+    cognito_client_secret: SecretStr | None = None
 
     @field_validator("database_url")
     @classmethod
