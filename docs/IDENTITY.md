@@ -86,7 +86,7 @@ operations with `503`; `/health` is independent and `/ready` only checks Postgre
 ## Configuring a developer environment
 
 The POC pool and backend client exist in Ohio. Public IDs are in
-[`infra/cognito/poc.json`](../infra/cognito/poc.json). The client secret is private:
+[`infra/cognito/environment.json`](../infra/cognito/environment.json). The client secret is private:
 retrieve it through an authorized AWS console session and keep it only in your
 backend `.env`. Do not create another pool for each developer.
 

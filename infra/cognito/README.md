@@ -1,7 +1,7 @@
 # Cognito POC
 
 The pool and confidential backend app client are provisioned in `us-east-2` (Ohio).
-[`poc.json`](poc.json) contains their public identifiers. The client secret and test
+[`environment.json`](environment.json) contains their public identifiers. The client secret and test
 passwords are outside Git. Use the existing pool for team testing; the JSON inputs
 are configuration references, not commands to create duplicate resources.
 
