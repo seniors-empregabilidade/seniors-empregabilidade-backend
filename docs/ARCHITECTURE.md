@@ -20,7 +20,6 @@ One deployable API process owns the confirmed product modules. PostgreSQL is the
 - `app/identity`: provider port, tokens, safe errors, and Cognito adapter
 - `app/auth`: login, local user lookup, and authorization dependencies
 - `app/accounts`: provider email confirmation and resend
-- `app/companies`: CNPJ validation, registry lookup, and company registration
 
 The confirmed data model uses one SQLAlchemy persistence model per file under a
 shared `app.db.models` package and metadata object. Product modules, routers, and
@@ -53,5 +52,5 @@ The application emits one key-value completion event per non-health HTTP request
 
 Identity and the administrator/approved-company guards are implemented as described
 in [Identity integration](IDENTITY.md). Routes must explicitly opt into protection.
-Company approval/rejection, browser session handling, password reset, refresh/logout,
+Product registration, company approval/rejection, browser session handling, password reset, refresh/logout,
 audit retention, file storage, and background jobs remain separate work.

@@ -2,7 +2,7 @@
 
 ## Purpose and current scope
 
-This repository is the FastAPI backend for Seniors – Empregabilidade. It provides technical configuration, shared external identity, and company registration. Do not invent domain entities, database tables, routes, roles, workflows, or file-storage behavior that have not been confirmed by project scope.
+This repository is the FastAPI backend for Seniors – Empregabilidade. It provides technical configuration and shared external identity. Do not invent domain entities, database tables, routes, roles, workflows, or file-storage behavior that have not been confirmed by project scope.
 
 The architecture priority is: team knowledge, simplicity and maintainability, mature ecosystem, deployment ease, then sophistication. This is a four-sprint academic project with mixed experience levels.
 

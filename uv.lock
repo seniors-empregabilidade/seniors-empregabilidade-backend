@@ -951,7 +951,6 @@ dependencies = [
     { name = "alembic" },
     { name = "boto3" },
     { name = "fastapi" },
-    { name = "httpx2" },
     { name = "psycopg", extra = ["binary"] },
     { name = "pydantic-settings" },
     { name = "pyjwt", extra = ["crypto"] },
@@ -963,6 +962,7 @@ dependencies = [
 dev = [
     { name = "boto3-stubs", extra = ["cognito-idp"] },
     { name = "conventional-pre-commit" },
+    { name = "httpx2" },
     { name = "mypy" },
     { name = "pre-commit" },
     { name = "pytest" },
@@ -975,7 +975,6 @@ requires-dist = [
     { name = "alembic", specifier = ">=1.19.1" },
     { name = "boto3", specifier = ">=1.40,<2" },
     { name = "fastapi", specifier = ">=0.141.1" },
-    { name = "httpx2", specifier = ">=2.10.0" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3,<4" },
     { name = "pydantic-settings", specifier = ">=2.15.0" },
     { name = "pyjwt", extras = ["crypto"], specifier = ">=2.10,<3" },
@@ -987,6 +986,7 @@ requires-dist = [
 dev = [
     { name = "boto3-stubs", extras = ["cognito-idp"], specifier = ">=1.40,<2" },
     { name = "conventional-pre-commit", specifier = ">=4.4.0" },
+    { name = "httpx2", specifier = ">=2.10.0" },
     { name = "mypy", specifier = ">=2.3.0" },
     { name = "pre-commit", specifier = ">=4.6.2" },
     { name = "pytest", specifier = ">=9.1.1" },
