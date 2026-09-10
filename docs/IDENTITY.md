@@ -19,7 +19,7 @@ include CNPJ validation, BrasilAPI, company registration endpoints or their test
 | `app/auth/services/login.py` | Authenticate and find the local user by the verified subject |
 | `app/auth/dependencies.py` | Read local account status and enforce role/approval requirements |
 | `app/accounts/router.py` | Send/confirm provider email codes; no product registration logic |
-| `infra/cognito` | AWS configuration and public POC identifiers |
+| `infra/cognito` | AWS configuration and public environment identifiers |
 
 Product use cases receive `IdentityProvider` through dependency injection. They
 call `register(email=..., password=...)` and persist the returned `identity_subject`
@@ -85,7 +85,7 @@ operations with `503`; `/health` is independent and `/ready` only checks Postgre
 
 ## Configuring a developer environment
 
-The POC pool and backend client exist in Ohio. Public IDs are in
+The shared development pool and backend client exist in Ohio. Public IDs are in
 [`infra/cognito/environment.json`](../infra/cognito/environment.json). The client secret is private:
 retrieve it through an authorized AWS console session and keep it only in your
 backend `.env`. Do not create another pool for each developer.

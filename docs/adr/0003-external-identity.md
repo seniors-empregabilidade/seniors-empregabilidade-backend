@@ -4,7 +4,7 @@ Status: Proposed for team review
 
 ## Context and decision
 
-The POC needs shared authentication across product features. Cognito manages
+The application needs shared authentication across product features. Cognito manages
 passwords, confirmation and token issuance. There are no production accounts
 requiring compatibility with local password authentication.
 
@@ -27,7 +27,7 @@ Feature use cases call the identity port and own their persistence transaction.
 An email match does not prove identity ownership. Recovery of an existing identity
 requires successful authentication and token verification.
 
-The POC pool and backend client are provisioned in Ohio. The API preserves the
+The development pool and backend client are provisioned in Ohio. The API preserves the
 JSON token login contract and existing email-verification paths. Browser session
 storage, refresh/logout, password reset and MFA challenge handling are separate
 work. See [Identity integration](../IDENTITY.md) for setup and verification.
