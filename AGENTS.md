@@ -2,7 +2,7 @@
 
 ## Purpose and current scope
 
-This repository is the FastAPI backend for Seniors – Empregabilidade. It currently provides technical configuration only. Do not invent domain entities, database tables, routes, roles, workflows, or file-storage behavior that have not been confirmed by project scope.
+This repository is the FastAPI backend for Seniors – Empregabilidade. It provides technical configuration, shared external identity, and company registration. Do not invent domain entities, database tables, routes, roles, workflows, or file-storage behavior that have not been confirmed by project scope.
 
 The architecture priority is: team knowledge, simplicity and maintainability, mature ecosystem, deployment ease, then sophistication. This is a four-sprint academic project with mixed experience levels.
 
@@ -63,7 +63,7 @@ Never bypass pre-commit hooks or reduce quality thresholds to make a change pass
 ## Database and migrations
 
 - PostgreSQL is the only supported database. Do not substitute SQLite in tests.
-- `alembic/versions` remains empty until a confirmed schema exists.
+- Keep confirmed schema changes in new Alembic revisions; preserve merged revisions.
 - After models exist, expose one shared SQLAlchemy metadata object to Alembic.
 - Inspect generated migrations. Test upgrade and downgrade behavior against PostgreSQL.
 - Never modify an already merged migration.
@@ -75,7 +75,7 @@ Write compact structured key-value events to standard output. Use the request ID
 
 Use synthetic, anonymous test data. Never copy stakeholder or user data into source, fixtures, logs, migrations, documentation, or AI prompts.
 
-Authentication, authorization, audit retention, and file storage are deliberately deferred. Do not imply that the bootstrap protects product data before those requirements are implemented.
+Identity and administrator/approved-company dependencies are implemented. Product routes must explicitly use the appropriate dependency; do not assume authentication protects all routes. Audit retention and file storage remain deferred.
 
 ## Tests
 

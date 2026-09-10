@@ -17,6 +17,10 @@ One deployable API process owns the confirmed product modules. PostgreSQL is the
 - `app/core`: configuration, problem details, logging, and request context
 - `app/db`: shared metadata, synchronous sessions, domain models, and readiness
 - `app/health`: liveness and readiness endpoints
+- `app/identity`: provider port, tokens, safe errors, and Cognito adapter
+- `app/auth`: login, local user lookup, and authorization dependencies
+- `app/accounts`: provider email confirmation and resend
+- `app/companies`: CNPJ validation, registry lookup, and company registration
 
 The confirmed data model uses one SQLAlchemy persistence model per file under a
 shared `app.db.models` package and metadata object. Product modules, routers, and
@@ -37,7 +41,7 @@ Failures use RFC 9457 `application/problem+json` with `type`, `title`, HTTP `sta
 
 SQLAlchemy 2 uses one shared declarative base and synchronous session lifecycle through Psycopg 3. Alembic owns schema evolution. PostgreSQL-native enums, UUID arrays, JSONB, checks, deferrable foreign keys, and deletion behavior are defined consistently in the models and initial migration.
 
-The local/test-only seed uses deterministic UUIDs and one transaction. It is idempotent and non-destructive, contains only synthetic identities and `.invalid` URLs, and stores passwords with the same shared Argon2id service used by product code.
+The local/test-only seed uses deterministic UUIDs and one transaction. It is idempotent and non-destructive, contains only synthetic identities and `.invalid` URLs, and leaves identity subjects null. Seed users cannot authenticate. Product credentials are managed by Cognito through the provider port.
 
 SQLite is not a supported substitute. Unit tests isolate technical probes where useful; CI exercises readiness and migrations against PostgreSQL 18.4.
 
@@ -47,4 +51,7 @@ The application emits one key-value completion event per non-health HTTP request
 
 ## Deferred capabilities
 
-Authentication, RBAC, audit persistence/retention, certificate or file storage, background work, caching, deployment platform, and external observability are not bootstrap assumptions. Each requires confirmed product or operational requirements before implementation.
+Identity and the administrator/approved-company guards are implemented as described
+in [Identity integration](IDENTITY.md). Routes must explicitly opt into protection.
+Company approval/rejection, browser session handling, password reset, refresh/logout,
+audit retention, file storage, and background jobs remain separate work.

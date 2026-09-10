@@ -125,13 +125,10 @@ uv run python -m scripts.seed
 
 O seed aceita somente `APP_ENV=local` ou `APP_ENV=test`, executa em uma única transação e pode ser repetido sem alterar ou apagar dados existentes. Ele usa apenas identidades sintéticas e URLs `.invalid`.
 
-As três contas locais usam a senha `LocalDemoOnly!2026`, exclusivamente para desenvolvimento:
-
-- `candidate@example.invalid`;
-- `representative@company.example.invalid`;
-- `administrator@example.invalid`.
-
-Essas credenciais nunca devem ser usadas fora dos ambientes local e de teste.
+Seed users have no password or external identity subject and cannot authenticate.
+See [Identity integration](docs/IDENTITY.md) for Cognito configuration, registration,
+email confirmation, login, and frontend contracts. The identity migration cannot
+restore passwords on downgrade; downgrade requires an empty `app_user` table.
 
 ## Principais comandos de qualidade
 

@@ -5,10 +5,9 @@ import pytest
 from sqlalchemy import inspect, select
 from sqlalchemy.dialects.postgresql.base import PGInspector
 
-from app.core.passwords import verify_password
 from app.db.models import AppUser
 from app.db.session import get_engine, get_session_factory
-from scripts.seed import DEMO_PASSWORD, seed_database
+from scripts.seed import seed_database
 
 pytestmark = pytest.mark.skipif(
     os.getenv("RUN_DATABASE_INTEGRATION_TESTS") != "1",
@@ -37,7 +36,7 @@ def test_migrated_schema_contains_postgresql_domain_objects() -> None:
 
 
 @pytest.mark.integration
-def test_seed_is_idempotent_and_uses_argon2id() -> None:
+def test_seed_is_idempotent_and_cannot_authenticate() -> None:
     factory = get_session_factory()
     with factory.begin() as session:
         seed_database(session)
@@ -47,5 +46,5 @@ def test_seed_is_idempotent_and_uses_argon2id() -> None:
         users = session.scalars(select(AppUser)).all()
 
     assert len(users) == 3
-    assert all(user.password_hash.startswith("$argon2id$") for user in users)
-    assert all(verify_password(user.password_hash, DEMO_PASSWORD) for user in users)
+    assert all(user.identity_subject is None for user in users)
+    assert "password_hash" not in AppUser.__table__.columns
