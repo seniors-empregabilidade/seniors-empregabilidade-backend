@@ -1,5 +1,5 @@
 {
-  "PoolName": "seniors-poc",
+  "PoolName": "seniors-development",
   "UserPoolTier": "LITE",
   "DeletionProtection": "ACTIVE",
   "UsernameAttributes": [

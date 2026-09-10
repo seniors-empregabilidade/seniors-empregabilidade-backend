@@ -19,7 +19,7 @@ are enabled. The browser must never receive the client secret.
 ## Team setup
 
 1. Open the existing pool in the AWS console, in Ohio.
-2. Select the `seniors-backend-poc` app client and obtain its secret using your
+2. Select the `seniors-backend-development` app client and obtain its secret using your
    authorized AWS access. Do not paste it in Discord or a PR.
 3. Set `COGNITO_REGION`, `COGNITO_USER_POOL_ID`, `COGNITO_CLIENT_ID` and
    `COGNITO_CLIENT_SECRET` in the ignored backend `.env`.

@@ -1,6 +1,6 @@
 {
   "UserPoolId": "REPLACE_WITH_USER_POOL_ID",
-  "ClientName": "seniors-backend-poc",
+  "ClientName": "seniors-backend-development",
   "GenerateSecret": true,
   "ExplicitAuthFlows": [
     "ALLOW_USER_PASSWORD_AUTH",
