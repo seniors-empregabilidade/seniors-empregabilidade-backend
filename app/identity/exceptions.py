@@ -47,7 +47,7 @@ class IdentityConfirmationRequiredError(ProblemException):
             status_code=409,
             title="Conflict",
             code="identity_confirmation_required",
-            detail="Confirm the email, then submit the registration again.",
+            detail="Confirm the email before continuing.",
         )
 
 
