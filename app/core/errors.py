@@ -52,11 +52,15 @@ def _problem_response(
     if errors:
         content["errors"] = errors
 
+    headers = {REQUEST_ID_HEADER: request_id, "Cache-Control": "no-store"}
+    if status_code == 401:
+        headers["WWW-Authenticate"] = "Bearer"
+
     return JSONResponse(
         status_code=status_code,
         content=content,
         media_type="application/problem+json",
-        headers={REQUEST_ID_HEADER: request_id},
+        headers=headers,
     )
 
 

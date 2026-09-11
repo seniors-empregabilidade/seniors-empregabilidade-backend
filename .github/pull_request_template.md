@@ -1,3 +1,5 @@
+<!-- Escreva o título e a descrição deste PR em português. Código, identificadores e documentação técnica seguem em inglês. -->
+
 ## Summary
 
 <!-- Explain the problem and the outcome. -->
@@ -39,7 +41,8 @@ Human validation performed:
 
 ## Checklist
 
-- [ ] The PR title follows Conventional Commits and is in English
+- [ ] The PR title follows Conventional Commits, with the type prefix in English and the subject in Portuguese
+- [ ] The PR title and description are written in Brazilian Portuguese
 - [ ] Code, API fields, database identifiers, and documentation are in English
 - [ ] No secrets, credentials, personal data, résumés, or certificates are included
 - [ ] New dependencies solve a documented project problem

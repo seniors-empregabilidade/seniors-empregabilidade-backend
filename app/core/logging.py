@@ -48,3 +48,6 @@ def configure_logging(level: str) -> None:
     logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("httpx2").setLevel(logging.WARNING)
+
+    for name in ("botocore", "boto3", "urllib3"):
+        logging.getLogger(name).setLevel(logging.WARNING)

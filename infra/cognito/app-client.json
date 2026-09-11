@@ -1,0 +1,27 @@
+{
+  "UserPoolId": "REPLACE_WITH_USER_POOL_ID",
+  "ClientName": "seniors-backend-development",
+  "GenerateSecret": true,
+  "ExplicitAuthFlows": [
+    "ALLOW_USER_PASSWORD_AUTH",
+    "ALLOW_REFRESH_TOKEN_AUTH"
+  ],
+  "PreventUserExistenceErrors": "ENABLED",
+  "EnableTokenRevocation": true,
+  "AccessTokenValidity": 15,
+  "IdTokenValidity": 15,
+  "RefreshTokenValidity": 1,
+  "TokenValidityUnits": {
+    "AccessToken": "minutes",
+    "IdToken": "minutes",
+    "RefreshToken": "days"
+  },
+  "ReadAttributes": [
+    "email",
+    "email_verified"
+  ],
+  "WriteAttributes": [
+    "email"
+  ],
+  "AllowedOAuthFlowsUserPoolClient": false
+}

@@ -1,7 +1,5 @@
-from typing import Protocol
-
 import httpx2
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from app.companies.schemas.registry_record_response import RegistryRecordResponse
 
@@ -14,16 +12,25 @@ class RegistryProviderUnavailableError(Exception):
     pass
 
 
-class CompanyRegistry(Protocol):
-    def get_record(self, cnpj: str) -> RegistryRecordResponse: ...
-
-
 class _RegistryPayload(BaseModel):
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="ignore", str_strip_whitespace=True)
     cnpj: str = Field(pattern=r"^[0-9]{14}$")
-    razao_social: str = Field(min_length=1)
-    nome_fantasia: str | None = None
-    cnae_fiscal: str | int
+    razao_social: str = Field(min_length=1, max_length=200)
+    nome_fantasia: str | None = Field(default=None, max_length=200)
+    cnae_fiscal: str
+
+    @field_validator("cnae_fiscal", mode="before")
+    @classmethod
+    def normalize_cnae(cls, value: object) -> str:
+        if isinstance(value, bool) or not isinstance(value, (str, int)):
+            raise ValueError("invalid CNAE")
+        raw = str(value)
+        if not raw or not raw.isascii() or not raw.isdigit() or int(raw) == 0:
+            raise ValueError("invalid CNAE")
+        normalized = raw.zfill(7)
+        if len(normalized) != 7 or not normalized.isascii() or not normalized.isdigit():
+            raise ValueError("invalid CNAE")
+        return normalized
 
 
 class BrasilAPIClient:

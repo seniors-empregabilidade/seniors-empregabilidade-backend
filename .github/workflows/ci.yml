@@ -46,7 +46,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v10.0.0
+        uses: astral-sh/setup-uv@v10.0.1
         with:
           version: 0.11.33
           enable-cache: true
@@ -56,6 +56,13 @@ jobs:
 
       - name: Install dependencies
         run: uv sync --frozen --all-groups
+
+      - name: Check runtime dependencies without development stubs
+        env:
+          UV_PROJECT_ENVIRONMENT: ${{ runner.temp }}/backend-runtime
+        run: |
+          uv sync --frozen --no-dev
+          uv run --frozen --no-dev python -c "from app.main import app; app.openapi()"
 
       - name: Validate pull request title
         if: github.event_name == 'pull_request'

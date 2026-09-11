@@ -118,3 +118,34 @@ def test_adapter_rejects_a_record_for_another_cnpj() -> None:
         pytest.raises(RegistryProviderUnavailableError),
     ):
         client.get_record("11222333000181")
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"razao_social": "x" * 201},
+        {"razao_social": "  "},
+        {"cnae_fiscal": ""},
+        {"cnae_fiscal": "text"},
+        {"cnae_fiscal": -1},
+        {"cnae_fiscal": True},
+        {"cnae_fiscal": None},
+        {"cnae_fiscal": 0},
+        {"cnae_fiscal": "12345678"},
+        {"nome_fantasia": "x" * 201},
+    ],
+)
+def test_provider_values_are_validated_before_persistence(
+    changes: dict[str, object],
+) -> None:
+    payload = {
+        "cnpj": "11222333000181",
+        "razao_social": "Synthetic Company",
+        "cnae_fiscal": 6201501,
+    }
+    payload.update(changes)
+    with (
+        client_for(lambda _: httpx2.Response(200, json=payload)) as client,
+        pytest.raises(RegistryProviderUnavailableError),
+    ):
+        client.get_record("11222333000181")

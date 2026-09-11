@@ -6,7 +6,6 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.core.passwords import hash_password
 from app.db.models import (
     Address,
     Administrator,
@@ -28,7 +27,6 @@ from app.db.models import (
 )
 from app.db.session import get_session_factory
 
-DEMO_PASSWORD = "LocalDemoOnly!2026"
 SEED_NAMESPACE = uuid5(NAMESPACE_URL, "https://seniors.example.invalid/seed/v1")
 
 
@@ -42,7 +40,6 @@ def add_if_missing(session: Session, model: type[object], **values: object) -> N
 
 def seed_database(session: Session) -> None:
     now = datetime(2026, 1, 1, tzinfo=UTC)
-    password_hash = hash_password(DEMO_PASSWORD)
     candidate_id = seed_id("user-candidate")
     company_id = seed_id("user-company")
     administrator_id = seed_id("user-administrator")
@@ -83,7 +80,7 @@ def seed_database(session: Session) -> None:
             AppUser,
             id=user_id,
             email=email,
-            password_hash=password_hash,
+            identity_subject=None,
             user_type=user_type,
             account_status="active",
             created_at=now,

@@ -7,7 +7,7 @@ company. In this codebase it may be a function or class; do not introduce a gene
 ## Rules
 
 - Accept an explicit input DTO or domain values, never `Request` or FastAPI context.
-- Orchestrate domain rules, persistence, hashing, and external ports.
+- Orchestrate domain rules, persistence and external identity/provider ports.
 - Own one complete transaction boundary for writes.
 - Depend on protocols or callables for external providers and other replaceable
   behavior.
