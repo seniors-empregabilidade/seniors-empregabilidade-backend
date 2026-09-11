@@ -5,16 +5,18 @@ description = "FastAPI backend for Seniors – Empregabilidade"
 requires-python = ">=3.14,<3.15"
 dependencies = [
     "alembic>=1.19.1",
-    "argon2-cffi>=25,<26",
+    "boto3>=1.40,<2",
     "fastapi>=0.141.1",
     "psycopg[binary]>=3,<4",
     "pydantic-settings>=2.15.0",
+    "pyjwt[crypto]>=2.10,<3",
     "sqlalchemy>=2,<3",
     "uvicorn[standard]>=0.52.3",
 ]
 
 [dependency-groups]
 dev = [
+    "boto3-stubs[cognito-idp]>=1.40,<2",
     "conventional-pre-commit>=4.4.0",
     "httpx2>=2.10.0",
     "mypy>=2.3.0",

@@ -57,6 +57,13 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen --all-groups
 
+      - name: Check runtime dependencies without development stubs
+        env:
+          UV_PROJECT_ENVIRONMENT: ${{ runner.temp }}/backend-runtime
+        run: |
+          uv sync --frozen --no-dev
+          uv run --frozen --no-dev python -c "from app.main import app; app.openapi()"
+
       - name: Validate pull request title
         if: github.event_name == 'pull_request'
         env:
