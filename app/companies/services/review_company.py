@@ -3,6 +3,9 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.companies.domain.policies.approval_policy import (
+    ensure_decision_reason_is_valid,
+)
 from app.companies.domain.policies.cnae_policy import ensure_cnae_is_allowed
 from app.companies.schemas.company_approval import CompanyApprovalRequest
 from app.companies.schemas.company_response import CompanyResponse
@@ -19,6 +22,7 @@ def review_company(
     blocked_cnae_prefixes: tuple[str, ...],
 ) -> CompanyResponse:
     try:
+        ensure_decision_reason_is_valid(request.status, request.reason)
         company = session.scalar(
             select(Company).where(Company.id == company_id).with_for_update()
         )
