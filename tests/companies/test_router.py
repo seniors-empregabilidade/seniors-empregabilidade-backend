@@ -4,12 +4,12 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.companies.integrations.brasil_api import (
-    CompanyRegistry,
     RegistryProviderUnavailableError,
     RegistryRecordNotFoundError,
 )
 from app.companies.router import get_company_registry
 from app.companies.schemas.registry_record_response import RegistryRecordResponse
+from app.companies.services.company_registry import CompanyRegistry
 
 
 class FakeRegistry:

@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import AnyHttpUrl, Field, PositiveFloat, field_validator
+from pydantic import AnyHttpUrl, Field, PositiveFloat, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DEFAULT_DATABASE_URL = (
@@ -48,6 +48,11 @@ class Settings(BaseSettings):
             "uol.com.br",
         ]
     )
+
+    cognito_region: str = "us-east-2"
+    cognito_user_pool_id: str = ""
+    cognito_client_id: str = ""
+    cognito_client_secret: SecretStr | None = None
 
     @field_validator("database_url")
     @classmethod

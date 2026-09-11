@@ -1,0 +1,54 @@
+{
+  "PoolName": "seniors-development",
+  "UserPoolTier": "LITE",
+  "DeletionProtection": "ACTIVE",
+  "UsernameAttributes": [
+    "email"
+  ],
+  "UsernameConfiguration": {
+    "CaseSensitive": false
+  },
+  "AutoVerifiedAttributes": [
+    "email"
+  ],
+  "Schema": [
+    {
+      "Name": "email",
+      "AttributeDataType": "String",
+      "Required": true,
+      "Mutable": true
+    }
+  ],
+  "UserAttributeUpdateSettings": {
+    "AttributesRequireVerificationBeforeUpdate": [
+      "email"
+    ]
+  },
+  "VerificationMessageTemplate": {
+    "DefaultEmailOption": "CONFIRM_WITH_CODE"
+  },
+  "MfaConfiguration": "OFF",
+  "Policies": {
+    "PasswordPolicy": {
+      "MinimumLength": 8,
+      "RequireUppercase": true,
+      "RequireLowercase": true,
+      "RequireNumbers": true,
+      "RequireSymbols": true
+    }
+  },
+  "AccountRecoverySetting": {
+    "RecoveryMechanisms": [
+      {
+        "Priority": 1,
+        "Name": "verified_email"
+      }
+    ]
+  },
+  "EmailConfiguration": {
+    "EmailSendingAccount": "COGNITO_DEFAULT"
+  },
+  "AdminCreateUserConfig": {
+    "AllowAdminCreateUserOnly": false
+  }
+}
