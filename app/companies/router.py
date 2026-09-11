@@ -10,6 +10,7 @@ from app.auth.schemas.current_user import CurrentUser
 from app.companies.domain.exceptions import (
     CompanySegmentBlockedError,
     InvalidCNPJError,
+    InvalidCompanyDecisionError,
     PersonalEmailDomainError,
 )
 from app.companies.domain.value_objects.cnpj import CNPJ
@@ -70,6 +71,7 @@ def _problem(status_code: int, code: str, detail: str) -> ProblemException:
         "company_email_conflict": "corporate_email",
         "company_email_domain_blocked": "corporate_email",
         "company_segment_blocked": "cnpj",
+        "invalid_company_decision": "reason",
     }.get(code)
     return ProblemException(
         status_code=status_code,
@@ -203,4 +205,10 @@ def decide_company_approval(
     except CompanySegmentBlockedError as exc:
         raise _problem(
             422, "company_segment_blocked", "This company segment cannot be approved."
+        ) from exc
+    except InvalidCompanyDecisionError as exc:
+        raise _problem(
+            422,
+            "invalid_company_decision",
+            "Provide a reason only when rejecting a company; it is required then.",
         ) from exc

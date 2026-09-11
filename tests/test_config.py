@@ -6,6 +6,19 @@ from pydantic import ValidationError
 from app.core.config import DEFAULT_DATABASE_URL, Settings
 
 
+@pytest.mark.parametrize(
+    "prefix", ["", " ", "blocked", "62x", "\uff16\uff12", "12345678"]
+)
+def test_settings_reject_invalid_cnae_prefixes(prefix: str) -> None:
+    with pytest.raises(ValidationError, match="CNAE"):
+        Settings(blocked_cnae_prefixes=[prefix])
+
+
+def test_settings_normalize_formatted_cnae_prefixes() -> None:
+    settings = Settings(blocked_cnae_prefixes=[" 62 ", "6201-5/01"])
+    assert settings.blocked_cnae_prefixes == ["62", "6201501"]
+
+
 def test_settings_use_safe_local_defaults(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

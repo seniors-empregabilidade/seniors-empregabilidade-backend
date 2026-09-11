@@ -69,15 +69,17 @@ class Settings(BaseSettings):
     @field_validator("blocked_cnae_prefixes")
     @classmethod
     def normalize_cnae_prefixes(cls, value: list[str]) -> list[str]:
-        return [
-            normalized
-            for item in value
-            if (
-                normalized := "".join(
-                    character for character in item if character.isdigit()
-                )
-            )
-        ]
+        prefixes = []
+        for item in value:
+            normalized = item.strip().translate(str.maketrans("", "", "./-"))
+            if not (
+                normalized.isascii()
+                and normalized.isdigit()
+                and 1 <= len(normalized) <= 7
+            ):
+                raise ValueError("CNAE prefixes must contain 1 to 7 ASCII digits")
+            prefixes.append(normalized)
+        return prefixes
 
     @field_validator("personal_email_domains")
     @classmethod

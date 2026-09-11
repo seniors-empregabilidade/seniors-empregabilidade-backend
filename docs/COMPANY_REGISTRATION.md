@@ -24,8 +24,8 @@ Related tasks: [registration](https://app.clickup.com/t/86e309dy1),
    `email_confirmation_required`. When confirmation is required, use the existing
    `/api/v1/email-verification/confirm` and `/send` endpoints.
 
-The ClickUp subtask still mentions local password hashing. ADR 0003 and merged
-PR #15 supersede that instruction. See [Identity setup](IDENTITY.md) for the shared
+The ClickUp subtask follows the external identity decision in ADR 0003 and merged
+PR #15. See [Identity setup](IDENTITY.md) for the shared
 Cognito environment and access-token contract.
 
 `company.corporate_email_confirmed` records the identity state observed during
@@ -74,6 +74,10 @@ an in-app `notification` row are committed together. Notification persistence
 failure rolls back the decision. This task uses the existing notification table;
 no email or push-notification delivery is claimed.
 
+The domain approval policy validates when a reason is required; the HTTP schema
+limits its shape and length. Invalid reason/status combinations return
+`422 invalid_company_decision` with `errors.reason`.
+
 `GET /api/v1/companies/me` lets the authenticated company read its own status and
 rejection reason. It accepts no arbitrary user ID. Pending and rejected companies
 can read this result. Other account types receive `403`.
@@ -92,6 +96,8 @@ claims. Publishing jobs is a separate user story, not an endpoint added here.
   have not been specified in the inspected tasks or repository.** Supply the agreed
   list for the target environment before accepting the real blocked-segment case.
   Tests use an explicit synthetic policy; they do not establish a product list.
+  Each prefix must have one to seven ASCII digits; dots, slashes and hyphens are
+  normalized. Invalid entries prevent startup instead of silently weakening the list.
 - `PERSONAL_EMAIL_DOMAINS` may extend the database-enforced blocked domain list.
 - The frontend currently sends `terms_version: "v1"`. A published legal document
   and its agreed version were not found in the inspected sources. Match the value

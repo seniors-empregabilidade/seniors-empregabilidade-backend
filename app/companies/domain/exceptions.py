@@ -8,3 +8,7 @@ class CompanySegmentBlockedError(ValueError):
 
 class PersonalEmailDomainError(ValueError):
     """The supplied address belongs to a personal email provider."""
+
+
+class InvalidCompanyDecisionError(ValueError):
+    """A rejection must explain the decision; an approval must not include a reason."""
