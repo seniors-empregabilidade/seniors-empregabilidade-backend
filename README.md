@@ -4,9 +4,9 @@ API do projeto Seniors – Empregabilidade, desenvolvida pela equipe da AGES com
 
 ## O que já está implementado
 
-O repositório contém a fundação técnica e de dados: configuração, conexão com PostgreSQL, schema do domínio, tratamento de erros, logs, endpoints de monitoramento, documentação interativa e testes automatizados.
+O repositório contém a fundação técnica e de dados e o cadastro de empresas: configuração, conexão com PostgreSQL, schema do domínio, tratamento de erros, logs, endpoints de monitoramento, consulta cadastral, documentação interativa e testes automatizados.
 
-Ainda não existem rotas de produto nem fluxos de autenticação ou autorização. A futura API do produto está reservada em `/api/v1`.
+As rotas de empresas estão em `/api/v1`. Fluxos de autenticação e autorização ainda não fazem parte do backend.
 
 ## Pré-requisitos
 
@@ -96,6 +96,10 @@ Copy-Item .env.example .env
 | `DATABASE_URL` | PostgreSQL local do Compose | Endereço de conexão com o banco |
 | `LOG_LEVEL` | `INFO` | Quantidade de detalhes nos logs |
 | `CORS_ORIGINS` | `["http://localhost:5173"]` | Endereços de frontend autorizados no navegador |
+| `BRASIL_API_BASE_URL` | `https://brasilapi.com.br/api` | URL base do provedor de dados cadastrais |
+| `BRASIL_API_TIMEOUT_SECONDS` | `5` | Limite da chamada ao provedor, sem retentativas |
+| `BLOCKED_CNAE_PREFIXES` | `[]` | Prefixos CNAE impedidos de cadastrar empresas |
+| `PERSONAL_EMAIL_DOMAINS` | lista do schema | Domínios pessoais impedidos no e-mail corporativo |
 
 Nunca versione credenciais ou configurações de produção. Reinicie a API após alterar `.env`.
 
@@ -167,3 +171,8 @@ O backend é um único serviço organizado para receber módulos coesos quando o
 ## Arquitetura e contribuição
 
 Leia [CONTRIBUTING.md](CONTRIBUTING.md) antes de abrir uma contribuição. Consulte também [AGENTS.md](AGENTS.md), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), as [decisões arquiteturais](docs/adr) e a [política de uso de IA](docs/AI_USAGE.md).
+
+## Company registration
+
+See [US-14 registration and approval](docs/COMPANY_REGISTRATION.md) for the Cognito
+flow, administrator decision, field errors and local verification.

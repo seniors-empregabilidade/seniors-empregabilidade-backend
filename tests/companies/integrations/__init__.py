@@ -1,0 +1,1 @@
+"""Company integration adapter tests."""
