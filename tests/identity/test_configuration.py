@@ -35,7 +35,12 @@ def test_proposed_aws_inputs_match_locked_sdk(filename: str, operation: str) -> 
     validate_parameters(payload, shape)
 
 
-def test_provider_composition_reuses_client_without_exposing_secret() -> None:
+@pytest.mark.parametrize("dotenv_region", ["us-east-2", "sa-east-1"])
+def test_provider_composition_reuses_client_without_exposing_secret(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, dotenv_region: str
+) -> None:
+    (tmp_path / ".env").write_text(f"COGNITO_REGION={dotenv_region}\n")
+    monkeypatch.chdir(tmp_path)
     settings = Settings(
         cognito_user_pool_id="us-east-2_TestPool",
         cognito_client_id="synthetic-client",

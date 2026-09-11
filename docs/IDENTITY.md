@@ -83,6 +83,13 @@ provider unavailability returns `503`. Pydantic validation keeps the existing
 `body.field` location convention. Missing pool/client configuration fails identity
 operations with `503`; `/health` is independent and `/ready` only checks PostgreSQL.
 
+Email confirmation returns the same `422 invalid_verification_code` response for
+an invalid/expired code, an unknown account or a confirmation rejected because the
+account is already confirmed. The error belongs to `errors.code`, without a
+`WWW-Authenticate` header or a password error. This keeps those account states
+indistinguishable in the response and avoids treating confirmation as an expired
+login session. Login still returns `401` for invalid credentials.
+
 ## Configuring a developer environment
 
 The shared development pool and backend client exist in Ohio. Public IDs are in

@@ -306,7 +306,15 @@ def test_confirm_email(provider: CognitoIdentityProvider, stub: Stubber) -> None
     provider.confirm_email(email=EMAIL, code="123456")
 
 
-@pytest.mark.parametrize("code", ["CodeMismatchException", "ExpiredCodeException"])
+@pytest.mark.parametrize(
+    "code",
+    [
+        "CodeMismatchException",
+        "ExpiredCodeException",
+        "NotAuthorizedException",
+        "UserNotFoundException",
+    ],
+)
 def test_confirmation_error(
     provider: CognitoIdentityProvider, stub: Stubber, code: str
 ) -> None:
@@ -314,6 +322,10 @@ def test_confirmation_error(
     with pytest.raises(ProblemException) as error:
         provider.confirm_email(email=EMAIL, code="123456")
     assert error.value.code == "invalid_verification_code"
+    assert error.value.status_code == 422
+    assert error.value.errors == {
+        "code": ["The verification code is invalid or expired."]
+    }
 
 
 @pytest.mark.parametrize(

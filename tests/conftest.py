@@ -12,6 +12,7 @@ from app.main import create_app
 @pytest.fixture(autouse=True)
 def isolate_identity_configuration(monkeypatch: pytest.MonkeyPatch) -> None:
     # A developer may have a real pool configured in their ignored .env.
+    monkeypatch.setenv("COGNITO_REGION", "us-east-2")
     monkeypatch.setenv("COGNITO_USER_POOL_ID", "")
     monkeypatch.setenv("COGNITO_CLIENT_ID", "")
     monkeypatch.setenv("COGNITO_CLIENT_SECRET", "")

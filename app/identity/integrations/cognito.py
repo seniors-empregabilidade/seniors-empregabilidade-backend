@@ -171,6 +171,12 @@ class CognitoIdentityProvider:
                 **self._secret_hash(email),
             )
         except ClientError as exc:
+            if exc.response["Error"]["Code"] in {
+                "NotAuthorizedException",
+                "UserNotFoundException",
+            }:
+                # Do not disclose account state or request login credentials here.
+                raise InvalidConfirmationCodeError from exc
             self._raise_provider_error(exc)
         except BotoCoreError as exc:
             raise IdentityProviderUnavailableError from exc

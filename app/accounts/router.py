@@ -13,7 +13,7 @@ from app.identity.provider import IdentityProvider
 router = APIRouter(
     prefix="/email-verification",
     tags=["accounts"],
-    responses={code: PROBLEM_RESPONSE for code in (401, 422, 429, 503)},
+    responses={code: PROBLEM_RESPONSE for code in (422, 429, 503)},
 )
 
 
