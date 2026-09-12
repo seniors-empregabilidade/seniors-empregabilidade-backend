@@ -21,5 +21,5 @@ class ProfessionalCreateRequest(BaseModel):
 
 
 class ProfessionalCreateResponse(BaseModel):
-    id: str
+    id: int
     message: str = "Registration successful"

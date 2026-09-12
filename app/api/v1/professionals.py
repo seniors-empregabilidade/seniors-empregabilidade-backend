@@ -4,10 +4,7 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app.db.session import get_session
-from app.schemas.professional import (
-    ProfessionalCreateRequest,
-    ProfessionalCreateResponse,
-)
+from app.schemas.professional import ProfessionalCreateRequest, ProfessionalCreateResponse
 from app.use_cases.register_professional import register_candidate
 
 router = APIRouter()
