@@ -36,6 +36,7 @@ class Candidate(Base):
     )
     full_name: Mapped[str] = mapped_column(String(150))
     cpf: Mapped[str] = mapped_column(CHAR(11), unique=True)
+    email: Mapped[str] = mapped_column(String(150), unique=True)
     birth_date: Mapped[date] = mapped_column(Date)
     age: Mapped[int | None] = mapped_column(SmallInteger)
     phone: Mapped[str] = mapped_column(String(20))
