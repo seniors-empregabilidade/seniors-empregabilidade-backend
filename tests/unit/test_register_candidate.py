@@ -1,10 +1,9 @@
 import uuid
-from unittest.mock import patch, Mock
+from typing import Any
+from unittest.mock import Mock, patch
 
 import pytest
 from fastapi import status
-
-from typing import Any
 from sqlalchemy.orm import Session
 
 from app.core.errors import ProblemException
@@ -19,6 +18,7 @@ def _valid_request(**overrides: Any) -> ProfessionalCreateRequest:
     The default ``date_of_birth`` is a ``date`` instance.
     """
     from datetime import date
+
     full_name = overrides.get("full_name", "John Doe")
     cpf = overrides.get("cpf", "123.456.789-09")
     date_of_birth = overrides.get("date_of_birth", date(1970, 1, 1))
