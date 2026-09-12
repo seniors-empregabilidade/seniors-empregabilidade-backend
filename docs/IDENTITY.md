@@ -71,8 +71,11 @@ cannot select its own key-server URL. Responses containing identity data use
 
 A valid provider account must also have a linked, active `app_user`. Suspended
 and blocked local accounts receive `403`. `get_current_user` reads status on each
-request. Product endpoints opt into `require_administrator` or
-`require_approved_company` where appropriate. Pending companies may call `/auth/me`
+request. Product endpoints opt into `require_candidate`,
+`require_administrator` or `require_approved_company` where appropriate. Each
+guard answers `403` with its own stable code: `candidate_required`,
+`administrator_required` and `approved_company_required`. A role never reaches
+another role's routes, so typing another environment's URL is refused. Pending companies may call `/auth/me`
 to see their status. No public endpoint grants an administrator role.
 
 Errors use `application/problem+json` with `code`, `detail`, `request_id` and optional
