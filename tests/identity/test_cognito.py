@@ -9,6 +9,7 @@ from typing import Any
 import jwt
 import pytest
 from botocore.exceptions import EndpointConnectionError
+from botocore.session import Session
 from botocore.stub import Stubber
 from cryptography.hazmat.primitives.asymmetric import rsa
 from jwt.exceptions import PyJWKClientConnectionError
@@ -18,7 +19,10 @@ from app.identity.exceptions import (
     IdentityProviderUnavailableError,
     InvalidAccessTokenError,
 )
-from app.identity.integrations.cognito import CognitoIdentityProvider
+from app.identity.integrations.cognito import (
+    ACCOUNT_INDEPENDENT_RESET_FAILURES,
+    CognitoIdentityProvider,
+)
 from app.identity.registered_identity import RegisteredIdentity
 
 EMAIL = "person@company.example.invalid"
@@ -26,6 +30,11 @@ PASSWORD = "SyntheticPassword!42"
 SUBJECT = "11111111-2222-3333-4444-555555555555"
 POOL = "us-east-2_TestPool"
 CLIENT = "testclient"
+
+
+def provider_errors(operation: str) -> set[str]:
+    model = Session().get_service_model("cognito-idp")
+    return {shape.name for shape in model.operation_model(operation).error_shapes}
 
 
 @pytest.fixture
@@ -341,7 +350,13 @@ def test_resend_does_not_disclose_account_existence(
 
 @pytest.mark.parametrize(
     "operation",
-    ["sign_up", "initiate_auth", "confirm_sign_up", "resend_confirmation_code"],
+    [
+        "sign_up",
+        "initiate_auth",
+        "confirm_sign_up",
+        "resend_confirmation_code",
+        "forgot_password",
+    ],
 )
 def test_connection_errors(
     provider: CognitoIdentityProvider, monkeypatch: pytest.MonkeyPatch, operation: str
@@ -357,8 +372,10 @@ def test_connection_errors(
             provider.authenticate(email=EMAIL, password=PASSWORD)
         elif operation == "confirm_sign_up":
             provider.confirm_email(email=EMAIL, code="123456")
-        else:
+        elif operation == "resend_confirmation_code":
             provider.resend_confirmation(email=EMAIL)
+        else:
+            provider.start_password_reset(email=EMAIL)
 
 
 @pytest.mark.parametrize(
@@ -370,3 +387,72 @@ def test_unconfigured_identity_is_unavailable(
 ) -> None:
     with pytest.raises(IdentityProviderUnavailableError):
         CognitoIdentityProvider(region=region, pool_id=pool, client_id=client)
+
+
+def test_start_password_reset(provider: CognitoIdentityProvider, stub: Stubber) -> None:
+    stub.add_response(
+        "forgot_password",
+        {
+            "CodeDeliveryDetails": {
+                "AttributeName": "email",
+                "DeliveryMedium": "EMAIL",
+                "Destination": "p***@e***",
+            }
+        },
+        {"ClientId": CLIENT, "Username": EMAIL},
+    )
+    provider.start_password_reset(email=EMAIL)
+
+
+@pytest.mark.parametrize(
+    "code",
+    [
+        "CodeDeliveryFailureException",
+        "InvalidParameterException",
+        "LimitExceededException",
+        "NotAuthorizedException",
+        "UserNotConfirmedException",
+        "UserNotFoundException",
+    ],
+)
+def test_start_password_reset_hides_every_account_specific_failure(
+    provider: CognitoIdentityProvider, stub: Stubber, code: str
+) -> None:
+    stub.add_client_error("forgot_password", service_error_code=code)
+    provider.start_password_reset(email=EMAIL)
+
+
+def test_start_password_reset_hides_undocumented_provider_failures(
+    provider: CognitoIdentityProvider, stub: Stubber
+) -> None:
+    stub.add_client_error("forgot_password", service_error_code="FutureAwsException")
+    provider.start_password_reset(email=EMAIL)
+
+
+@pytest.mark.parametrize(
+    ("code", "expected"),
+    [
+        ("TooManyRequestsException", "too_many_attempts"),
+        ("InternalErrorException", "identity_provider_unavailable"),
+        ("ForbiddenException", "identity_provider_unavailable"),
+        ("ResourceNotFoundException", "identity_provider_unavailable"),
+        ("InvalidEmailRoleAccessPolicyException", "identity_provider_unavailable"),
+    ],
+)
+def test_start_password_reset_reports_account_independent_failures(
+    provider: CognitoIdentityProvider, stub: Stubber, code: str, expected: str
+) -> None:
+    stub.add_client_error(
+        "forgot_password", service_error_code=code, service_message=EMAIL
+    )
+    with pytest.raises(ProblemException) as error:
+        provider.start_password_reset(email=EMAIL)
+    assert error.value.code == expected
+    assert EMAIL not in error.value.detail
+
+
+def test_every_reportable_reset_failure_is_modelled_by_the_provider() -> None:
+    modelled = set(
+        provider_errors("ForgotPassword") | provider_errors("ConfirmForgotPassword")
+    )
+    assert modelled >= ACCOUNT_INDEPENDENT_RESET_FAILURES
