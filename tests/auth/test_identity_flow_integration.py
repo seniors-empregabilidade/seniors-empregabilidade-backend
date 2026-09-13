@@ -6,7 +6,11 @@ from fastapi import Depends, FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import delete, select
 
-from app.auth.dependencies import require_administrator, require_approved_company
+from app.auth.dependencies import (
+    require_administrator,
+    require_approved_company,
+    require_candidate,
+)
 from app.db.models import AppUser, Company
 from app.db.models.enums import AccountStatus, CompanyStatus, UserType
 from app.db.session import get_session_factory
@@ -245,4 +249,29 @@ def test_pending_company_can_identify_but_cannot_use_approved_features(
             "/test-company", headers={"Authorization": "Bearer access"}
         ).status_code
         == 200
+    )
+
+
+def test_only_database_candidate_passes_guard(
+    application: FastAPI, client: TestClient, provider: FakeIdentityProvider
+) -> None:
+    application.get("/test-candidate", dependencies=[Depends(require_candidate)])(
+        lambda: {"ok": True}
+    )
+    add_user(role=UserType.CANDIDATE)
+    assert (
+        client.get(
+            "/test-candidate", headers={"Authorization": "Bearer access"}
+        ).status_code
+        == 200
+    )
+    with get_session_factory().begin() as session:
+        user = session.scalar(select(AppUser).where(AppUser.email == EMAIL))
+        assert user is not None
+        user.user_type = UserType.COMPANY
+    assert (
+        client.get(
+            "/test-candidate", headers={"Authorization": "Bearer access"}
+        ).status_code
+        == 403
     )
