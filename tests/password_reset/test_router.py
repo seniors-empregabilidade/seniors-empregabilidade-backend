@@ -1,3 +1,4 @@
+import logging
 from collections.abc import Mapping
 
 import pytest
@@ -169,6 +170,171 @@ def test_an_invalid_payload_is_refused_before_the_provider_is_called(
     client: TestClient, fake_provider: FakeIdentityProvider, payload: dict[str, str]
 ) -> None:
     response = client.post(SEND_PATH, json=payload)
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "validation_error"
+    assert fake_provider.calls == []
+
+
+CONFIRM_PATH = "/api/v1/password-reset/confirm"
+NEW_PASSWORD = "SyntheticPassword!42"
+CONFIRM_PARAMS = {
+    "ClientId": "testclient",
+    "Username": EMAIL,
+    "ConfirmationCode": "123456",
+    "Password": NEW_PASSWORD,
+}
+
+
+def confirmation_payload(**overrides: str) -> dict[str, str]:
+    payload = {"email": EMAIL, "code": "123456", "password": NEW_PASSWORD}
+    payload.update(overrides)
+    return payload
+
+
+def test_a_confirmed_reset_returns_no_content(
+    client: TestClient, fake_provider: FakeIdentityProvider
+) -> None:
+    response = client.post(CONFIRM_PATH, json=confirmation_payload())
+
+    assert response.status_code == 204
+    assert not response.content
+    assert fake_provider.calls == ["confirm_reset"]
+
+
+@pytest.mark.parametrize(
+    "provider_error",
+    [
+        "CodeMismatchException",
+        "ExpiredCodeException",
+        "InvalidParameterException",
+        "NotAuthorizedException",
+        "UserNotConfirmedException",
+        "UserNotFoundException",
+    ],
+)
+def test_rejections_share_a_field_error_without_authentication_challenge(
+    client: TestClient, cognito_provider: CognitoIdentityProvider, provider_error: str
+) -> None:
+    with Stubber(cognito_provider._client) as stub:
+        stub.add_client_error(
+            "confirm_forgot_password",
+            service_error_code=provider_error,
+            service_message="Synthetic provider detail must not reach the client.",
+            expected_params=CONFIRM_PARAMS,
+        )
+        response = client.post(CONFIRM_PATH, json=confirmation_payload())
+        stub.assert_no_pending_responses()
+
+    assert response.status_code == 422
+    assert response.headers["content-type"] == "application/problem+json"
+    assert response.headers["cache-control"] == "no-store"
+    assert "www-authenticate" not in response.headers
+    assert response.json() == {
+        "type": "about:blank",
+        "title": "Validation Error",
+        "status": 422,
+        "detail": "The verification code is invalid or expired.",
+        "instance": CONFIRM_PATH,
+        "code": "invalid_verification_code",
+        "request_id": response.headers["x-request-id"],
+        "errors": {"code": ["The verification code is invalid or expired."]},
+    }
+
+
+@pytest.mark.parametrize(
+    "provider_error",
+    ["InvalidPasswordException", "PasswordHistoryPolicyViolationException"],
+)
+def test_a_refused_password_is_reported_as_a_policy_violation(
+    client: TestClient, cognito_provider: CognitoIdentityProvider, provider_error: str
+) -> None:
+    with Stubber(cognito_provider._client) as stub:
+        stub.add_client_error(
+            "confirm_forgot_password",
+            service_error_code=provider_error,
+            service_message="Synthetic provider detail must not reach the client.",
+        )
+        response = client.post(CONFIRM_PATH, json=confirmation_payload())
+        stub.assert_no_pending_responses()
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "password_policy_violation"
+    assert response.json()["errors"]["password"]
+
+
+def test_repeated_attempts_are_throttled(
+    client: TestClient, cognito_provider: CognitoIdentityProvider
+) -> None:
+    with Stubber(cognito_provider._client) as stub:
+        stub.add_client_error(
+            "confirm_forgot_password", service_error_code="LimitExceededException"
+        )
+        response = client.post(CONFIRM_PATH, json=confirmation_payload())
+        stub.assert_no_pending_responses()
+
+    assert response.status_code == 429
+    assert response.json()["code"] == "too_many_attempts"
+
+
+@pytest.mark.parametrize(
+    "provider_error",
+    [
+        "CodeMismatchException",
+        "InvalidPasswordException",
+        "LimitExceededException",
+        "InternalErrorException",
+    ],
+)
+def test_the_new_password_and_code_never_reach_the_response(
+    client: TestClient, cognito_provider: CognitoIdentityProvider, provider_error: str
+) -> None:
+    with Stubber(cognito_provider._client) as stub:
+        stub.add_client_error(
+            "confirm_forgot_password",
+            service_error_code=provider_error,
+            service_message=f"{NEW_PASSWORD} 123456",
+        )
+        response = client.post(CONFIRM_PATH, json=confirmation_payload())
+        stub.assert_no_pending_responses()
+
+    assert response.status_code in {422, 429, 503}
+    assert NEW_PASSWORD not in response.text
+    assert "123456" not in response.text
+
+
+def test_the_new_password_and_code_are_never_logged(
+    client: TestClient,
+    cognito_provider: CognitoIdentityProvider,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    with caplog.at_level(logging.DEBUG), Stubber(cognito_provider._client) as stub:
+        stub.add_client_error(
+            "confirm_forgot_password", service_error_code="InternalErrorException"
+        )
+        client.post(CONFIRM_PATH, json=confirmation_payload())
+        stub.assert_no_pending_responses()
+
+    recorded = "\n".join(record.getMessage() for record in caplog.records)
+    assert NEW_PASSWORD not in recorded
+    assert "123456" not in recorded
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"email": EMAIL, "code": "123456"},
+        {"email": EMAIL, "password": NEW_PASSWORD},
+        {"code": "123456", "password": NEW_PASSWORD},
+        confirmation_payload(email="missing-at-sign"),
+        confirmation_payload(code=""),
+        confirmation_payload(password=""),
+    ],
+)
+def test_an_invalid_confirmation_is_refused_before_the_provider_is_called(
+    client: TestClient, fake_provider: FakeIdentityProvider, payload: dict[str, str]
+) -> None:
+    response = client.post(CONFIRM_PATH, json=payload)
 
     assert response.status_code == 422
     assert response.json()["code"] == "validation_error"

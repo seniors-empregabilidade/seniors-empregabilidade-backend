@@ -5,7 +5,10 @@ from fastapi import APIRouter, Depends, Response
 from app.core.problem_details import PROBLEM_RESPONSE
 from app.identity.dependencies import get_identity_provider
 from app.identity.provider import IdentityProvider
-from app.password_reset.schemas import PasswordResetRequest
+from app.password_reset.schemas import (
+    PasswordResetConfirmationRequest,
+    PasswordResetRequest,
+)
 
 router = APIRouter(
     prefix="/password-reset",
@@ -21,3 +24,16 @@ def send_password_reset(
 ) -> Response:
     provider.start_password_reset(email=request.email)
     return Response(status_code=202)
+
+
+@router.post("/confirm", status_code=204)
+def confirm_password_reset(
+    request: PasswordResetConfirmationRequest,
+    provider: Annotated[IdentityProvider, Depends(get_identity_provider)],
+) -> Response:
+    provider.confirm_password_reset(
+        email=request.email,
+        code=request.code.get_secret_value(),
+        password=request.password.get_secret_value(),
+    )
+    return Response(status_code=204)

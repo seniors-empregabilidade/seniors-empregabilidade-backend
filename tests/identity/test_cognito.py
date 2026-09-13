@@ -356,6 +356,7 @@ def test_resend_does_not_disclose_account_existence(
         "confirm_sign_up",
         "resend_confirmation_code",
         "forgot_password",
+        "confirm_forgot_password",
     ],
 )
 def test_connection_errors(
@@ -374,8 +375,12 @@ def test_connection_errors(
             provider.confirm_email(email=EMAIL, code="123456")
         elif operation == "resend_confirmation_code":
             provider.resend_confirmation(email=EMAIL)
-        else:
+        elif operation == "forgot_password":
             provider.start_password_reset(email=EMAIL)
+        else:
+            provider.confirm_password_reset(
+                email=EMAIL, code="123456", password=PASSWORD
+            )
 
 
 @pytest.mark.parametrize(
@@ -456,3 +461,90 @@ def test_every_reportable_reset_failure_is_modelled_by_the_provider() -> None:
         provider_errors("ForgotPassword") | provider_errors("ConfirmForgotPassword")
     )
     assert modelled >= ACCOUNT_INDEPENDENT_RESET_FAILURES
+
+
+def test_confirm_password_reset(
+    provider: CognitoIdentityProvider, stub: Stubber
+) -> None:
+    stub.add_response(
+        "confirm_forgot_password",
+        {},
+        {
+            "ClientId": CLIENT,
+            "Username": EMAIL,
+            "ConfirmationCode": "123456",
+            "Password": PASSWORD,
+        },
+    )
+    provider.confirm_password_reset(email=EMAIL, code="123456", password=PASSWORD)
+
+
+@pytest.mark.parametrize(
+    "code",
+    [
+        "CodeMismatchException",
+        "ExpiredCodeException",
+        "InvalidParameterException",
+        "NotAuthorizedException",
+        "UserNotConfirmedException",
+        "UserNotFoundException",
+    ],
+)
+def test_confirm_password_reset_rejections_share_one_code_error(
+    provider: CognitoIdentityProvider, stub: Stubber, code: str
+) -> None:
+    stub.add_client_error("confirm_forgot_password", service_error_code=code)
+    with pytest.raises(ProblemException) as error:
+        provider.confirm_password_reset(email=EMAIL, code="123456", password=PASSWORD)
+    assert error.value.code == "invalid_verification_code"
+    assert error.value.status_code == 422
+    assert error.value.errors == {
+        "code": ["The verification code is invalid or expired."]
+    }
+
+
+@pytest.mark.parametrize(
+    ("code", "expected"),
+    [
+        ("InvalidPasswordException", "password_policy_violation"),
+        ("PasswordHistoryPolicyViolationException", "password_policy_violation"),
+        ("LimitExceededException", "too_many_attempts"),
+        ("TooManyRequestsException", "too_many_attempts"),
+        ("TooManyFailedAttemptsException", "too_many_attempts"),
+        ("InternalErrorException", "identity_provider_unavailable"),
+    ],
+)
+def test_confirm_password_reset_errors_do_not_expose_provider_messages(
+    provider: CognitoIdentityProvider, stub: Stubber, code: str, expected: str
+) -> None:
+    stub.add_client_error(
+        "confirm_forgot_password", service_error_code=code, service_message=PASSWORD
+    )
+    with pytest.raises(ProblemException) as error:
+        provider.confirm_password_reset(email=EMAIL, code="123456", password=PASSWORD)
+    assert error.value.code == expected
+    assert PASSWORD not in error.value.detail
+
+
+def test_every_confirmation_failure_is_handled_by_an_explicit_mapping() -> None:
+    unmapped = provider_errors("ConfirmForgotPassword") - {
+        "CodeMismatchException",
+        "ExpiredCodeException",
+        "ForbiddenException",
+        "InternalErrorException",
+        "InvalidLambdaResponseException",
+        "InvalidParameterException",
+        "InvalidPasswordException",
+        "LimitExceededException",
+        "NotAuthorizedException",
+        "OperationNotEnabledException",
+        "PasswordHistoryPolicyViolationException",
+        "ResourceNotFoundException",
+        "TooManyFailedAttemptsException",
+        "TooManyRequestsException",
+        "UnexpectedLambdaException",
+        "UserLambdaValidationException",
+        "UserNotConfirmedException",
+        "UserNotFoundException",
+    }
+    assert unmapped == set()
