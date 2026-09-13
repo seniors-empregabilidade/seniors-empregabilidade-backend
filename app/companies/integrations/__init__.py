@@ -1,0 +1,1 @@
+"""External company registry integrations."""
