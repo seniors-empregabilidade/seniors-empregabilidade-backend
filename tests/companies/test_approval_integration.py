@@ -203,7 +203,9 @@ def test_approval_rechecks_blocked_segments(
         headers=authorization("admin"),
     )
     assert response.status_code == 422
-    assert response.json()["code"] == "company_segment_blocked"
+    body = response.json()
+    assert body["code"] == "company_segment_blocked"
+    assert body.get("errors") is None
     with get_session_factory()() as session:
         assert (
             session.scalar(select(Company.status).where(Company.id == company_id))

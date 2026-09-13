@@ -1,3 +1,4 @@
+import logging
 import os
 from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
@@ -284,6 +285,7 @@ def test_identity_outage_rolls_back_user_company_and_address(
 def test_definite_database_failure_keeps_identity_for_a_proven_owner_retry(
     identity_provider: FakeIdentityProvider,
     monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
     confirmed: bool,
 ) -> None:
     identity_provider.confirmed = confirmed
@@ -293,10 +295,14 @@ def test_definite_database_failure_keeps_identity_for_a_proven_owner_retry(
             raise IntegrityError("synthetic", None, Exception("synthetic constraint"))
 
         monkeypatch.setattr(session, "commit", fail_commit)
-        with pytest.raises(IntegrityError):
+        with (
+            caplog.at_level(logging.WARNING, logger="app.identity"),
+            pytest.raises(IntegrityError),
+        ):
             register_with(session, identity_provider)
     assert_no_partial_registration()
     assert identity_provider.calls == ["register"]
+    assert "identity_registration_incomplete" in caplog.text
 
 
 def test_unknown_commit_outcome_never_deletes_identity(

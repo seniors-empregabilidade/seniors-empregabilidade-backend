@@ -60,7 +60,13 @@ def review_company(
                 )
             )
         user = session.get(AppUser, company.id)
-        assert user is not None
+        if user is None:
+            raise ProblemException(
+                status_code=404,
+                title="Not Found",
+                code="company_not_found",
+                detail="The company was not found.",
+            )
         response = CompanyResponse(
             id=company.id, email=user.email, status=company.status
         )

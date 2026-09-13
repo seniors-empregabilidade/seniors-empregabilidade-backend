@@ -57,12 +57,16 @@ class CompanyRegistrationRequest(BaseModel):
         if not value:
             return None
         parsed = urlsplit(value)
+        try:
+            port = parsed.port
+        except ValueError as exc:
+            raise ValueError("use an HTTPS LinkedIn company URL") from exc
         if (
             parsed.scheme != "https"
             or parsed.hostname not in {"linkedin.com", "www.linkedin.com"}
             or parsed.username is not None
             or parsed.password is not None
-            or parsed.port not in {None, 443}
+            or port not in {None, 443}
             or not parsed.path.startswith("/company/")
             or not parsed.path.removeprefix("/company/").strip("/")
         ):

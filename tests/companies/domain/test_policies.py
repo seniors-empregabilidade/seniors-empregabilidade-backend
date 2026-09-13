@@ -20,3 +20,19 @@ def test_corporate_email_normalizes_domain_and_blocks_personal_domain() -> None:
     )
     with pytest.raises(PersonalEmailDomainError):
         CorporateEmail("person@gmail.com", frozenset({"gmail.com"}))
+
+
+@pytest.mark.parametrize(
+    "raw_value",
+    ["person@gmail.com", "person@mail.gmail.com", "person@a.b.gmail.com"],
+)
+def test_corporate_email_blocks_personal_subdomains(raw_value: str) -> None:
+    with pytest.raises(PersonalEmailDomainError):
+        CorporateEmail(raw_value, frozenset({"gmail.com"}))
+
+
+def test_corporate_email_allows_a_domain_that_only_ends_alike() -> None:
+    assert (
+        CorporateEmail("sales@notgmail.com", frozenset({"gmail.com"})).value
+        == "sales@notgmail.com"
+    )

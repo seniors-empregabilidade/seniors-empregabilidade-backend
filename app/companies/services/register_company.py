@@ -84,6 +84,7 @@ def register_company(
         session.commit()
     except IntegrityError as exc:
         session.rollback()
+        _log_incomplete_identity(identity)
         constraint = getattr(getattr(exc.orig, "diag", None), "constraint_name", "")
         if constraint == "uq_app_user_identity_subject":
             raise IdentityConflictError from exc
@@ -94,12 +95,7 @@ def register_company(
         raise
     except Exception:
         session.rollback()
-        if identity is not None:
-            # Keep the provider identity so a proven owner can retry registration.
-            # A lost commit acknowledgement may mean the local rows already exist.
-            logging.getLogger("app.identity").warning(
-                "identity_registration_incomplete"
-            )
+        _log_incomplete_identity(identity)
         raise
     return CompanyRegistrationResponse(
         id=user.id,
@@ -107,3 +103,16 @@ def register_company(
         status=company.status,
         email_confirmation_required=not identity.confirmed,
     )
+
+
+def _log_incomplete_identity(identity: RegisteredIdentity | None) -> None:
+    """Report a provider identity left without its local rows.
+
+    The provider identity is kept on purpose so a proven owner can retry
+    registration: a lost commit acknowledgement may mean the local rows already
+    exist. Every rollback path after `identity_provider.register` must emit this
+    event, including integrity errors whose constraint is not mapped here.
+    """
+    if identity is None:
+        return
+    logging.getLogger("app.identity").warning("identity_registration_incomplete")

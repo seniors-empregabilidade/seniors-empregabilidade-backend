@@ -1,4 +1,5 @@
 from collections.abc import Iterator
+from types import EllipsisType
 from typing import Annotated
 from uuid import UUID
 
@@ -57,28 +58,42 @@ def get_company_registry(
         yield client
 
 
-def _problem(status_code: int, code: str, detail: str) -> ProblemException:
-    titles = {
-        404: "Not Found",
-        409: "Conflict",
-        422: "Unprocessable Content",
-        503: "Service Unavailable",
-    }
-    field = {
-        "invalid_cnpj": "cnpj",
-        "cnpj_not_found": "cnpj",
-        "company_cnpj_conflict": "cnpj",
-        "company_email_conflict": "corporate_email",
-        "company_email_domain_blocked": "corporate_email",
-        "company_segment_blocked": "cnpj",
-        "invalid_company_decision": "reason",
-    }.get(code)
+_PROBLEM_TITLES = {
+    404: "Not Found",
+    409: "Conflict",
+    422: "Unprocessable Content",
+    503: "Service Unavailable",
+}
+
+_REGISTRATION_REQUEST_FIELDS = {
+    "invalid_cnpj": "cnpj",
+    "cnpj_not_found": "cnpj",
+    "company_cnpj_conflict": "cnpj",
+    "company_email_conflict": "corporate_email",
+    "company_email_domain_blocked": "corporate_email",
+    "company_segment_blocked": "cnpj",
+    "invalid_company_decision": "reason",
+}
+
+
+def _problem(
+    status_code: int,
+    code: str,
+    detail: str,
+    *,
+    field: str | EllipsisType | None = ...,
+) -> ProblemException:
+    resolved_field = (
+        _REGISTRATION_REQUEST_FIELDS.get(code)
+        if isinstance(field, EllipsisType)
+        else field
+    )
     return ProblemException(
         status_code=status_code,
-        title=titles[status_code],
+        title=_PROBLEM_TITLES[status_code],
         code=code,
         detail=detail,
-        errors={field: [detail]} if field else None,
+        errors={resolved_field: [detail]} if resolved_field else None,
     )
 
 
@@ -204,7 +219,10 @@ def decide_company_approval(
         )
     except CompanySegmentBlockedError as exc:
         raise _problem(
-            422, "company_segment_blocked", "This company segment cannot be approved."
+            422,
+            "company_segment_blocked",
+            "This company segment cannot be approved.",
+            field=None,
         ) from exc
     except InvalidCompanyDecisionError as exc:
         raise _problem(
