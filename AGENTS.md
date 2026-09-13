@@ -75,7 +75,7 @@ Write compact structured key-value events to standard output. Use the request ID
 
 Use synthetic, anonymous test data. Never copy stakeholder or user data into source, fixtures, logs, migrations, documentation, or AI prompts.
 
-Identity and administrator/approved-company dependencies are implemented. Product routes must explicitly use the appropriate dependency; do not assume authentication protects all routes. Audit retention and file storage remain deferred.
+Identity and the candidate/administrator/approved-company dependencies are implemented. Product routes must explicitly use the appropriate dependency; do not assume authentication protects all routes. Audit retention and file storage remain deferred.
 
 ## Tests
 

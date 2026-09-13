@@ -1,0 +1,1 @@
+"""Candidate application service tests."""

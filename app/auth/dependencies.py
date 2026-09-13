@@ -27,6 +27,19 @@ def get_current_user(
     return find_current_user(session, subject)
 
 
+def require_candidate(
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> CurrentUser:
+    if user.user_type != UserType.CANDIDATE:
+        raise ProblemException(
+            status_code=403,
+            title="Forbidden",
+            code="candidate_required",
+            detail="A candidate account is required.",
+        )
+    return user
+
+
 def require_administrator(
     user: Annotated[CurrentUser, Depends(get_current_user)],
 ) -> CurrentUser:
