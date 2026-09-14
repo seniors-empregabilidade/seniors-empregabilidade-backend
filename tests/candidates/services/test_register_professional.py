@@ -2,6 +2,7 @@ from datetime import UTC, date, datetime
 
 import pytest
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.candidates.exceptions import (
@@ -227,6 +228,81 @@ def test_provider_identity_conflict_is_reported_on_email_and_rolls_back(
         )
 
     assert _user_count(database_session, email="maria@example.com") == 0
+
+
+def test_database_failure_after_identity_creation_is_logged_and_recoverable(
+    database_session: Session,
+    identity_provider: FakeIdentityProvider,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    with monkeypatch.context() as commit_failure:
+
+        def fail_commit() -> None:
+            raise IntegrityError("synthetic", None, Exception("synthetic"))
+
+        commit_failure.setattr(database_session, "commit", fail_commit)
+        with (
+            caplog.at_level("WARNING", logger="app.identity"),
+            pytest.raises(IntegrityError),
+        ):
+            register_professional(
+                registration_request(),
+                session=database_session,
+                identity_provider=identity_provider,
+                today=TODAY,
+                now=NOW,
+            )
+
+    assert _user_count(database_session, email="maria@example.com") == 0
+    assert _candidate_count(database_session, cpf="11144477735") == 0
+    assert identity_provider.calls == ["register"]
+    assert "identity_registration_incomplete" in caplog.text
+
+    identity_provider.confirm_email(email="maria@example.com", code="123456")
+    recovered = register_professional(
+        registration_request(),
+        session=database_session,
+        identity_provider=identity_provider,
+        today=TODAY,
+        now=NOW,
+    )
+
+    assert recovered.email_verification_required is False
+    assert _user_count(database_session, email="maria@example.com") == 1
+    assert _candidate_count(database_session, cpf="11144477735") == 1
+    assert identity_provider.calls == ["register", "confirm", "register"]
+
+
+def test_lost_commit_acknowledgement_keeps_local_registration_and_logs_uncertainty(
+    database_session: Session,
+    identity_provider: FakeIdentityProvider,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    commit = database_session.commit
+
+    def commit_then_lose_acknowledgement() -> None:
+        commit()
+        raise ConnectionError("synthetic lost acknowledgement")
+
+    monkeypatch.setattr(database_session, "commit", commit_then_lose_acknowledgement)
+    with (
+        caplog.at_level("WARNING", logger="app.identity"),
+        pytest.raises(ConnectionError),
+    ):
+        register_professional(
+            registration_request(),
+            session=database_session,
+            identity_provider=identity_provider,
+            today=TODAY,
+            now=NOW,
+        )
+
+    assert _user_count(database_session, email="maria@example.com") == 1
+    assert _candidate_count(database_session, cpf="11144477735") == 1
+    assert identity_provider.calls == ["register"]
+    assert "identity_registration_incomplete" in caplog.text
 
 
 def _user_count(session: Session, *, email: str) -> int:

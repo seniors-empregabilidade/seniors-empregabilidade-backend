@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from uuid import UUID
@@ -21,6 +22,7 @@ from app.db.models import AppUser, Candidate
 from app.db.models.enums import UserType
 from app.identity.exceptions import IdentityConflictError
 from app.identity.provider import IdentityProvider
+from app.identity.registered_identity import RegisteredIdentity
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,6 +55,7 @@ def register_professional(
         raise TermsAcceptanceRequiredError
 
     email = str(request.email).casefold()
+    identity: RegisteredIdentity | None = None
     try:
         user = AppUser(
             email=email,
@@ -86,12 +89,14 @@ def register_professional(
         session.commit()
     except IntegrityError as exc:
         session.rollback()
+        _log_incomplete_identity(identity)
         raise _translate_integrity_error(exc) from exc
     except IdentityConflictError as exc:
         session.rollback()
         raise EmailAlreadyRegisteredError from exc
     except Exception:
         session.rollback()
+        _log_incomplete_identity(identity)
         raise
 
     return RegisteredProfessional(
@@ -100,6 +105,18 @@ def register_professional(
         email=user.email,
         email_verification_required=not identity.confirmed,
     )
+
+
+def _log_incomplete_identity(identity: RegisteredIdentity | None) -> None:
+    """Report a provider identity whose local persistence outcome is uncertain.
+
+    The provider identity is deliberately kept because a lost commit acknowledgement
+    can mean that the local rows were persisted. A confirmed owner can safely retry
+    registration with the same credentials and recover the provider subject.
+    """
+    if identity is None:
+        return
+    logging.getLogger("app.identity").warning("identity_registration_incomplete")
 
 
 def _translate_integrity_error(error: IntegrityError) -> ProblemException:
