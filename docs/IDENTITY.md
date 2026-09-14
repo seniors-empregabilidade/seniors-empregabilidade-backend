@@ -43,6 +43,8 @@ All paths start with `/api/v1`. Inspect full schemas in `/docs`.
 | `GET /auth/me` | Bearer access token | `200`: `id`, `user_type`, nullable `company_status` |
 | `POST /email-verification/confirm` | `email`, `code` | `204`, no body |
 | `POST /email-verification/send` | `email` | `202`, no body; unknown/already confirmed addresses use the same response |
+| `POST /password-reset/send` | `email` | `202`, no body; every address uses the same response |
+| `POST /password-reset/confirm` | `email`, `code`, `password` | `204`, no body |
 
 ```mermaid
 sequenceDiagram
@@ -92,6 +94,16 @@ account is already confirmed. The error belongs to `errors.code`, without a
 `WWW-Authenticate` header or a password error. This keeps those account states
 indistinguishable in the response and avoids treating confirmation as an expired
 login session. Login still returns `401` for invalid credentials.
+
+Password reset applies the same rule more strictly. `/password-reset/send` returns
+`202` for any address, and the adapter reports a provider failure only when that
+failure cannot depend on the account, so an unknown address, a deactivated user, a
+missing verified email, a failed delivery and the per-user attempt limit are all
+indistinguishable. `/password-reset/confirm` collapses a wrong, expired or already
+spent code, an unknown account and an unconfirmed account into one
+`422 invalid_verification_code`; a password the pool refuses returns
+`422 password_policy_violation` and throttling returns `429`. Cognito owns the code
+and its one-hour lifetime, so the API stores no reset token.
 
 ## Configuring a developer environment
 
@@ -145,7 +157,7 @@ The frontend main still has no authentication screens. Its integration should us
 the shared API client and feature hooks: login/confirmation are mutations and
 `/auth/me` is a query. Keep tokens out of persisted query caches and clear user data
 when changing accounts. This API returns JSON tokens, not session cookies.
-Refresh/logout, password reset, MFA challenge handling and browser session storage
+Refresh/logout, MFA challenge handling and browser session storage
 remain separate work. Offline JWT verification does not detect token revocation
 before expiration; local account blocking is checked on every protected request.
 

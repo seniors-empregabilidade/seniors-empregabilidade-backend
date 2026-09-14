@@ -236,6 +236,36 @@ class CognitoIdentityProvider:
         except BotoCoreError as exc:
             raise IdentityProviderUnavailableError from exc
 
+    def confirm_password_reset(self, *, email: str, code: str, password: str) -> None:
+        try:
+            self._client.confirm_forgot_password(
+                ClientId=self._client_id,
+                Username=email,
+                ConfirmationCode=code,
+                Password=password,
+                **self._secret_hash(email),
+            )
+        except ClientError as exc:
+            error_code = exc.response["Error"]["Code"]
+            if error_code in {
+                "InvalidParameterException",
+                "NotAuthorizedException",
+                "UserNotConfirmedException",
+                "UserNotFoundException",
+            }:
+                # A rejected attempt must read the same whether the account is
+                # unknown, deactivated or still waiting for its email confirmation.
+                raise InvalidConfirmationCodeError from exc
+            if error_code == "PasswordHistoryPolicyViolationException":
+                raise IdentityPasswordRejectedError from exc
+            if error_code == "LimitExceededException":
+                # The caller already proved it holds a code, so reporting the
+                # per-user attempt limit discloses nothing about the account.
+                raise IdentityRateLimitError from exc
+            self._raise_provider_error(exc)
+        except BotoCoreError as exc:
+            raise IdentityProviderUnavailableError from exc
+
     @staticmethod
     def _raise_provider_error(exc: ClientError) -> Never:
         code = exc.response["Error"]["Code"]
