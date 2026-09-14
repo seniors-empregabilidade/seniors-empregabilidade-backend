@@ -176,3 +176,8 @@ Leia [CONTRIBUTING.md](CONTRIBUTING.md) antes de abrir uma contribuição. Consu
 
 See [US-14 registration and approval](docs/COMPANY_REGISTRATION.md) for the Cognito
 flow, administrator decision, field errors and local verification.
+
+## Professional registration
+
+See [US-04 professional registration](docs/PROFESSIONAL_REGISTRATION.md) for the
+validation, Cognito confirmation, failure recovery and verification steps.
