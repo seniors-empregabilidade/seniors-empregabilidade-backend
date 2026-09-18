@@ -21,3 +21,8 @@ def test_job_defaults_and_status_index_are_declared() -> None:
     assert str(Job.__table__.c.featured.server_default.arg) == "false"
     assert str(Job.__table__.c.desired_skills.server_default.arg) == "'[]'::jsonb"
     assert has_index(Job, "ix_job_status")
+
+
+def test_deferred_catalog_fields_are_optional() -> None:
+    assert Job.__table__.c.work_mode.nullable is True
+    assert Job.__table__.c.closing_date.nullable is True
