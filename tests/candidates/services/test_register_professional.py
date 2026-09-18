@@ -66,7 +66,7 @@ def test_registration_creates_linked_user_and_candidate(
     assert user.user_type is UserType.CANDIDATE
     assert candidate.id == user.id
     assert candidate.cpf == "11144477735"
-    assert candidate.age == 56
+    assert candidate.birth_date == date(1970, 1, 1)
     assert candidate.state == "RS"
     assert candidate.terms_version_accepted == "v1"
     assert candidate.terms_accepted_at == NOW

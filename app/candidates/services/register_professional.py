@@ -8,7 +8,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.candidates.domain.cpf import Cpf, InvalidCpfValueError
-from app.candidates.domain.minimum_age import age_on, meets_minimum_age
+from app.candidates.domain.minimum_age import meets_minimum_age
 from app.candidates.exceptions import (
     CpfAlreadyRegisteredError,
     EmailAlreadyRegisteredError,
@@ -70,7 +70,6 @@ def register_professional(
             full_name=request.full_name,
             cpf=cpf.value,
             birth_date=request.birth_date,
-            age=age_on(request.birth_date, reference_date),
             phone=request.phone,
             city=request.city,
             state=request.state,
@@ -127,9 +126,6 @@ def _translate_integrity_error(error: IntegrityError) -> ProblemException:
             return CpfAlreadyRegisteredError()
         if constraint_name == "uq_app_user_email":
             return EmailAlreadyRegisteredError()
-        if constraint_name in {
-            "ck_candidate_age_value",
-            "ck_candidate_minimum_age",
-        }:
+        if constraint_name == "ck_candidate_minimum_age":
             return MinimumAgeNotMetError()
     raise error
