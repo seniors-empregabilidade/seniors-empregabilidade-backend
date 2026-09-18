@@ -19,9 +19,11 @@ from app.db.models import (
     Event,
     Experience,
     Job,
+    JobSkill,
     Language,
     Notification,
     Resume,
+    ResumeSkill,
     Skill,
     Training,
 )
@@ -93,7 +95,6 @@ def seed_database(session: Session) -> None:
         full_name="Demo Candidate",
         cpf="00000000000",
         birth_date=date(1960, 1, 1),
-        age=66,
         phone="+5500000000000",
         city="Porto Alegre",
         state="RS",
@@ -113,7 +114,15 @@ def seed_database(session: Session) -> None:
         desired_salary=Decimal("5000.00"),
         availability_start_date=date(2026, 1, 1),
         completion_percentage=100,
-        skill_ids=[skill_id],
+        created_at=now,
+        updated_at=now,
+    )
+    add_if_missing(
+        session,
+        ResumeSkill,
+        id=seed_id("resume-skill-python"),
+        resume_id=resume_id,
+        skill_id=skill_id,
         created_at=now,
         updated_at=now,
     )
@@ -205,7 +214,15 @@ def seed_database(session: Session) -> None:
         published_at=now,
         closing_date=date(2027, 1, 1),
         featured=False,
-        desired_skills=[{"skill_id": str(skill_id), "required": True}],
+        created_at=now,
+        updated_at=now,
+    )
+    add_if_missing(
+        session,
+        JobSkill,
+        id=seed_id("job-skill-python"),
+        job_id=job_id,
+        skill_id=skill_id,
         created_at=now,
         updated_at=now,
     )

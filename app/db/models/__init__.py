@@ -24,9 +24,11 @@ from app.db.models.enums import (
 from app.db.models.event import Event
 from app.db.models.experience import Experience
 from app.db.models.job import Job
+from app.db.models.job_skill import JobSkill
 from app.db.models.language import Language
 from app.db.models.notification import Notification
 from app.db.models.resume import Resume
+from app.db.models.resume_skill import ResumeSkill
 from app.db.models.skill import Skill
 from app.db.models.training import Training
 
@@ -50,10 +52,12 @@ __all__ = [
     "Experience",
     "Job",
     "JobOutcome",
+    "JobSkill",
     "JobStatus",
     "Language",
     "Notification",
     "Resume",
+    "ResumeSkill",
     "Skill",
     "SkillType",
     "Training",

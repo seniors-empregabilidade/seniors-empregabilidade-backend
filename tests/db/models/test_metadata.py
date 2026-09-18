@@ -15,9 +15,11 @@ def test_metadata_contains_the_confirmed_domain_schema() -> None:
         "event",
         "experience",
         "job",
+        "job_skill",
         "language",
         "notification",
         "resume",
+        "resume_skill",
         "skill",
         "training",
     }

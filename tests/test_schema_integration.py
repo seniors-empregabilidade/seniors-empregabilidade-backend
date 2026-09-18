@@ -26,13 +26,20 @@ def test_migrated_schema_contains_postgresql_domain_objects() -> None:
         "candidate",
         "company",
         "job",
+        "job_skill",
         "resume",
+        "resume_skill",
     }
     assert len(pg_inspector.get_enums()) == 12
     assert any(
         check["name"] == "ck_company_cnpj_format"
         for check in inspector.get_check_constraints("company")
     )
+    for join_table in ("job_skill", "resume_skill"):
+        assert any(
+            foreign_key["referred_table"] == "skill"
+            for foreign_key in inspector.get_foreign_keys(join_table)
+        )
 
 
 @pytest.mark.integration

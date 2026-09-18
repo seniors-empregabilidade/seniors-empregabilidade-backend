@@ -7,9 +7,12 @@ from tests.db.models.assertions import (
 
 
 def test_candidate_business_checks_are_declared() -> None:
-    assert has_check_constraint(Candidate, "ck_candidate_age_value")
     assert has_check_constraint(Candidate, "ck_candidate_cpf_format")
     assert has_check_constraint(Candidate, "ck_candidate_minimum_age")
+
+
+def test_age_is_derived_from_birth_date_instead_of_stored() -> None:
+    assert "age" not in Candidate.__table__.columns
 
 
 def test_cpf_is_unique() -> None:
