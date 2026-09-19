@@ -54,3 +54,13 @@ class EmailAlreadyRegisteredError(ProblemException):
             detail="The email is already registered.",
             errors={"email": ["The email is already registered."]},
         )
+
+
+class ProfileNotFoundError(ProblemException):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=404,
+            title="Not Found",
+            code="profile_not_found",
+            detail="The professional profile was not found.",
+        )
