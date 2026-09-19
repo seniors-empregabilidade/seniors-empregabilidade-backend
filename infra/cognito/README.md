@@ -33,5 +33,24 @@ application does not need permission to create pools or administer users.
 Three synthetic test accounts were prepared for candidate, company and administrator
 testing. Invitation emails were suppressed and confirmation was administrative.
 Real login, JWT verification and the local user lookup are checked separately from
-email delivery. A controlled mailbox test is still required to verify receipt of
-confirmation/reset messages. Do not use shared synthetic accounts for real data.
+email delivery. Do not use shared synthetic accounts for real data.
+
+## Email delivery
+
+Delivery was verified against a real mailbox on 2026-09-14. An invitation message and a
+password-reset message both arrived in the inbox rather than in spam, sent from
+`no-reply@verificationemail.com`, each carrying a six-digit code. The reset message was
+also received through this API's own `/password-reset/send` endpoint, not only through
+the console.
+
+Amazon Cognito uses the verification message template for both self-registration and
+password reset, and offers no link format for password reset. One wording therefore has
+to suit both operations; per-operation copy would require a `CustomMessage` Lambda, which
+cannot rewrite the message body while the pool sends with the Cognito default account.
+The template now carries Brazilian Portuguese copy, so changing it affects registration
+and recovery together.
+
+The default email configuration caps how many messages a pool sends per day, and AWS
+documents that cap as below a production volume without publishing the number. A higher
+volume, or a sender other than `no-reply@verificationemail.com`, needs an address
+verified in Amazon SES.
