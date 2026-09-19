@@ -1,7 +1,22 @@
 from datetime import date
+from typing import Annotated
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, StringConstraints
+
+TrimmedName = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=150)
+]
+TrimmedPhone = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=7, max_length=20)
+]
+TrimmedCity = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)
+]
+TrimmedState = Annotated[
+    str,
+    StringConstraints(strip_whitespace=True, to_upper=True, min_length=2, max_length=2),
+]
 
 
 class ExperienceResponse(BaseModel):
@@ -35,3 +50,13 @@ class ProfessionalProfileResponse(BaseModel):
     experiences: list[ExperienceResponse]
     education: list[EducationResponse]
     skills: list[str]
+
+
+class ProfessionalProfileUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    full_name: TrimmedName | None = None
+    phone: TrimmedPhone | None = None
+    city: TrimmedCity | None = None
+    state: TrimmedState | None = None
+    summary: str | None = None

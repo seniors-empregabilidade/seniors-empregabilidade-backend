@@ -7,10 +7,11 @@ from app.auth.dependencies import require_candidate
 from app.auth.schemas.current_user import CurrentUser
 from app.candidates.schemas import (
     ProfessionalProfileResponse,
+    ProfessionalProfileUpdateRequest,
     ProfessionalRegistrationRequest,
     ProfessionalRegistrationResponse,
 )
-from app.candidates.services import get_profile, register_professional
+from app.candidates.services import get_profile, register_professional, update_profile
 from app.core.problem_details import PROBLEM_RESPONSE
 from app.db.session import get_session
 from app.identity.dependencies import get_identity_provider
@@ -50,3 +51,14 @@ def read_profile(
 ) -> ProfessionalProfileResponse:
     response.headers["Cache-Control"] = "no-store"
     return get_profile(current_user.id, session=session)
+
+
+@router.patch("/me", response_model=ProfessionalProfileResponse)
+def edit_profile(
+    request: ProfessionalProfileUpdateRequest,
+    current_user: Annotated[CurrentUser, Depends(require_candidate)],
+    session: Annotated[Session, Depends(get_session)],
+    response: Response,
+) -> ProfessionalProfileResponse:
+    response.headers["Cache-Control"] = "no-store"
+    return update_profile(current_user.id, request, session=session)
