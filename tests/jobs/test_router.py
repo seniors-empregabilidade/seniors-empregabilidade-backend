@@ -1,4 +1,5 @@
 from collections.abc import Iterator
+from datetime import date, timedelta
 from uuid import UUID, uuid4
 
 import pytest
@@ -7,8 +8,14 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import AppUser, Company, Job, Skill
-from app.db.models.enums import CompanyStatus, JobStatus, SkillType, UserType
+from app.db.models import AppUser, Company, Job, JobSkill, Skill
+from app.db.models.enums import (
+    CompanyStatus,
+    JobStatus,
+    SkillType,
+    UserType,
+    WorkMode,
+)
 from app.db.session import get_session
 from app.identity.dependencies import get_identity_provider
 from app.identity.exceptions import InvalidAccessTokenError
@@ -98,6 +105,8 @@ def valid_payload(skill_id: UUID, **overrides: object) -> dict[str, object]:
         "title": "Senior Python Developer",
         "description": "Synthetic job description for local tests.",
         "skill_ids": [str(skill_id)],
+        "work_mode": WorkMode.REMOTE.value,
+        "closing_date": (date.today() + timedelta(days=30)).isoformat(),
     }
     payload.update(overrides)
     return payload
@@ -108,9 +117,12 @@ def test_approved_company_creates_an_open_job(
     database_session: Session,
     seeded_ids: dict[str, UUID],
 ) -> None:
+    closing_date = date.today() + timedelta(days=30)
     response = jobs_client.post(
         JOBS_PATH,
-        json=valid_payload(seeded_ids["skill_id"]),
+        json=valid_payload(
+            seeded_ids["skill_id"], closing_date=closing_date.isoformat()
+        ),
         headers=authorization("company"),
     )
 
@@ -119,6 +131,8 @@ def test_approved_company_creates_an_open_job(
     assert body["title"] == "Senior Python Developer"
     assert body["description"] == "Synthetic job description for local tests."
     assert body["skill_ids"] == [str(seeded_ids["skill_id"])]
+    assert body["work_mode"] == WorkMode.REMOTE.value
+    assert body["closing_date"] == closing_date.isoformat()
     assert body["status"] == JobStatus.PUBLISHED.value
     assert body["company_id"] == str(seeded_ids["company_id"])
 
@@ -126,9 +140,12 @@ def test_approved_company_creates_an_open_job(
     assert job is not None
     assert job.company_id == seeded_ids["company_id"]
     assert job.status == JobStatus.PUBLISHED
-    assert job.desired_skills == [
-        {"skill_id": str(seeded_ids["skill_id"]), "required": True}
-    ]
+    assert job.work_mode == WorkMode.REMOTE
+    assert job.closing_date == closing_date
+    linked_skill_ids = database_session.scalars(
+        select(JobSkill.skill_id).where(JobSkill.job_id == job.id)
+    ).all()
+    assert linked_skill_ids == [seeded_ids["skill_id"]]
 
 
 def test_title_and_skills_are_required(
@@ -137,7 +154,12 @@ def test_title_and_skills_are_required(
 ) -> None:
     response = jobs_client.post(
         JOBS_PATH,
-        json={"description": "Missing required fields.", "skill_ids": []},
+        json={
+            "description": "Missing required fields.",
+            "skill_ids": [],
+            "work_mode": WorkMode.REMOTE.value,
+            "closing_date": (date.today() + timedelta(days=30)).isoformat(),
+        },
         headers=authorization("company"),
     )
 
@@ -147,6 +169,24 @@ def test_title_and_skills_are_required(
     assert "body.title" in response.json()["errors"]
     assert "body.skill_ids" in response.json()["errors"]
     assert seeded_ids["skill_id"]
+
+
+def test_closing_date_in_the_past_is_rejected(
+    jobs_client: TestClient,
+    seeded_ids: dict[str, UUID],
+) -> None:
+    response = jobs_client.post(
+        JOBS_PATH,
+        json=valid_payload(
+            seeded_ids["skill_id"],
+            closing_date=(date.today() - timedelta(days=1)).isoformat(),
+        ),
+        headers=authorization("company"),
+    )
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "closing_date_in_the_past"
+    assert "closing_date" in response.json()["errors"]
 
 
 def test_unknown_skill_ids_are_rejected(

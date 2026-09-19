@@ -25,4 +25,16 @@ def create_job(
     session: Annotated[Session, Depends(get_session)],
 ) -> JobResponse:
     response.headers["Cache-Control"] = "no-store"
-    return publish_job(request, session=session, company_id=user.id)
+    published = publish_job(request, session=session, company_id=user.id)
+    return JobResponse(
+        id=published.id,
+        company_id=published.company_id,
+        title=published.title,
+        description=published.description,
+        skill_ids=published.skill_ids,
+        work_mode=published.work_mode,
+        closing_date=published.closing_date,
+        status=published.status,
+        published_at=published.published_at,
+        created_at=published.created_at,
+    )

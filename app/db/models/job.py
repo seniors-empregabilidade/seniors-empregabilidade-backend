@@ -1,10 +1,8 @@
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Any
 from uuid import UUID
 
 from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Numeric, String, Text, text
-from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -23,7 +21,7 @@ class Job(UUIDPrimaryKey, Timestamps, Base):
     )
     title: Mapped[str] = mapped_column(String(150))
     description: Mapped[str] = mapped_column(Text)
-    work_mode: Mapped[WorkMode | None] = mapped_column(enum_type(WorkMode, "work_mode"))
+    work_mode: Mapped[WorkMode] = mapped_column(enum_type(WorkMode, "work_mode"))
     location: Mapped[str | None] = mapped_column(String(150))
     contract_type: Mapped[str | None] = mapped_column(String(50))
     salary_max: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
@@ -33,12 +31,9 @@ class Job(UUIDPrimaryKey, Timestamps, Base):
         index=True,
     )
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    closing_date: Mapped[date | None] = mapped_column(Date)
+    closing_date: Mapped[date] = mapped_column(Date)
     outcome: Mapped[JobOutcome | None] = mapped_column(
         enum_type(JobOutcome, "job_outcome")
     )
     featured: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
     featured_until: Mapped[date | None] = mapped_column(Date)
-    desired_skills: Mapped[list[dict[str, Any]]] = mapped_column(
-        JSONB, server_default=text("'[]'::jsonb")
-    )

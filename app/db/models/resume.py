@@ -3,16 +3,13 @@ from decimal import Decimal
 from uuid import UUID
 
 from sqlalchemy import (
-    ARRAY,
     CheckConstraint,
     Date,
     ForeignKey,
     Numeric,
     SmallInteger,
     Text,
-    text,
 )
-from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -43,6 +40,3 @@ class Resume(UUIDPrimaryKey, Timestamps, Base):
     desired_salary: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
     availability_start_date: Mapped[date | None] = mapped_column(Date)
     completion_percentage: Mapped[int] = mapped_column(SmallInteger, server_default="0")
-    skill_ids: Mapped[list[UUID]] = mapped_column(
-        ARRAY(PGUUID(as_uuid=True)), server_default=text("'{}'::uuid[]")
-    )

@@ -1,3 +1,3 @@
-from app.jobs.services.publish_job import publish_job
+from app.jobs.services.publish_job import PublishedJob, publish_job
 
-__all__ = ["publish_job"]
+__all__ = ["PublishedJob", "publish_job"]

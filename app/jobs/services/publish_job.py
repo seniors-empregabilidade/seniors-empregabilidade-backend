@@ -1,13 +1,28 @@
-from datetime import UTC, datetime
+from dataclasses import dataclass
+from datetime import UTC, date, datetime
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import Job, Skill
-from app.db.models.enums import JobStatus
-from app.jobs.exceptions import UnknownSkillsError
-from app.jobs.schemas import CreateJobRequest, JobResponse
+from app.db.models import Job, JobSkill, Skill
+from app.db.models.enums import JobStatus, WorkMode
+from app.jobs.exceptions import ClosingDateInThePastError, UnknownSkillsError
+from app.jobs.schemas import CreateJobRequest
+
+
+@dataclass(frozen=True, slots=True)
+class PublishedJob:
+    id: UUID
+    company_id: UUID
+    title: str
+    description: str
+    skill_ids: list[UUID]
+    work_mode: WorkMode
+    closing_date: date
+    status: JobStatus
+    published_at: datetime
+    created_at: datetime
 
 
 def publish_job(
@@ -15,9 +30,14 @@ def publish_job(
     *,
     session: Session,
     company_id: UUID,
+    today: date | None = None,
     now: datetime | None = None,
-) -> JobResponse:
+) -> PublishedJob:
+    reference_date = today or date.today()
     published_at = now or datetime.now(UTC)
+    if request.closing_date < reference_date:
+        raise ClosingDateInThePastError
+
     skill_ids = _unique_skill_ids(request.skill_ids)
     _ensure_skills_exist(session, skill_ids)
 
@@ -25,26 +45,31 @@ def publish_job(
         company_id=company_id,
         title=request.title,
         description=request.description,
+        work_mode=request.work_mode,
+        closing_date=request.closing_date,
         status=JobStatus.PUBLISHED,
         published_at=published_at,
-        desired_skills=[
-            {"skill_id": str(skill_id), "required": True} for skill_id in skill_ids
-        ],
     )
     try:
         session.add(job)
+        session.flush()
+        session.add_all(
+            JobSkill(job_id=job.id, skill_id=skill_id) for skill_id in skill_ids
+        )
         session.flush()
         session.commit()
     except Exception:
         session.rollback()
         raise
 
-    return JobResponse(
+    return PublishedJob(
         id=job.id,
         company_id=job.company_id,
         title=job.title,
         description=job.description,
         skill_ids=skill_ids,
+        work_mode=job.work_mode,
+        closing_date=job.closing_date,
         status=job.status,
         published_at=published_at,
         created_at=job.created_at,
