@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from uuid import UUID
@@ -7,7 +8,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.candidates.domain.cpf import Cpf, InvalidCpfValueError
-from app.candidates.domain.minimum_age import age_on, meets_minimum_age
+from app.candidates.domain.minimum_age import meets_minimum_age
 from app.candidates.exceptions import (
     CpfAlreadyRegisteredError,
     EmailAlreadyRegisteredError,
@@ -21,6 +22,7 @@ from app.db.models import AppUser, Candidate
 from app.db.models.enums import UserType
 from app.identity.exceptions import IdentityConflictError
 from app.identity.provider import IdentityProvider
+from app.identity.registered_identity import RegisteredIdentity
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,6 +55,7 @@ def register_professional(
         raise TermsAcceptanceRequiredError
 
     email = str(request.email).casefold()
+    identity: RegisteredIdentity | None = None
     try:
         user = AppUser(
             email=email,
@@ -67,7 +70,6 @@ def register_professional(
             full_name=request.full_name,
             cpf=cpf.value,
             birth_date=request.birth_date,
-            age=age_on(request.birth_date, reference_date),
             phone=request.phone,
             city=request.city,
             state=request.state,
@@ -86,12 +88,14 @@ def register_professional(
         session.commit()
     except IntegrityError as exc:
         session.rollback()
+        _log_incomplete_identity(identity)
         raise _translate_integrity_error(exc) from exc
     except IdentityConflictError as exc:
         session.rollback()
         raise EmailAlreadyRegisteredError from exc
     except Exception:
         session.rollback()
+        _log_incomplete_identity(identity)
         raise
 
     return RegisteredProfessional(
@@ -102,6 +106,18 @@ def register_professional(
     )
 
 
+def _log_incomplete_identity(identity: RegisteredIdentity | None) -> None:
+    """Report a provider identity whose local persistence outcome is uncertain.
+
+    The provider identity is deliberately kept because a lost commit acknowledgement
+    can mean that the local rows were persisted. A confirmed owner can safely retry
+    registration with the same credentials and recover the provider subject.
+    """
+    if identity is None:
+        return
+    logging.getLogger("app.identity").warning("identity_registration_incomplete")
+
+
 def _translate_integrity_error(error: IntegrityError) -> ProblemException:
     original = error.orig
     if isinstance(original, (UniqueViolation, CheckViolation)):
@@ -110,9 +126,6 @@ def _translate_integrity_error(error: IntegrityError) -> ProblemException:
             return CpfAlreadyRegisteredError()
         if constraint_name == "uq_app_user_email":
             return EmailAlreadyRegisteredError()
-        if constraint_name in {
-            "ck_candidate_age_value",
-            "ck_candidate_minimum_age",
-        }:
+        if constraint_name == "ck_candidate_minimum_age":
             return MinimumAgeNotMetError()
     raise error

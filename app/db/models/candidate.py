@@ -8,7 +8,6 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
-    SmallInteger,
     String,
     text,
 )
@@ -24,7 +23,6 @@ class Candidate(Base):
         CheckConstraint(
             "birth_date <= CURRENT_DATE - INTERVAL '45 years'", name="minimum_age"
         ),
-        CheckConstraint("age IS NULL OR age >= 45", name="age_value"),
         CheckConstraint("cpf ~ '^[0-9]{11}$'", name="cpf_format"),
     )
 
@@ -37,7 +35,6 @@ class Candidate(Base):
     full_name: Mapped[str] = mapped_column(String(150))
     cpf: Mapped[str] = mapped_column(CHAR(11), unique=True)
     birth_date: Mapped[date] = mapped_column(Date)
-    age: Mapped[int | None] = mapped_column(SmallInteger)
     phone: Mapped[str] = mapped_column(String(20))
     city: Mapped[str | None] = mapped_column(String(100))
     state: Mapped[str | None] = mapped_column(CHAR(2))

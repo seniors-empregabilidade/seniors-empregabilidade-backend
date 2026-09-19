@@ -35,3 +35,9 @@ class FakeIdentityProvider:
 
     def resend_confirmation(self, *, email: str) -> None:
         self._call("resend")
+
+    def start_password_reset(self, *, email: str) -> None:
+        self._call("start_reset")
+
+    def confirm_password_reset(self, *, email: str, code: str, password: str) -> None:
+        self._call("confirm_reset")

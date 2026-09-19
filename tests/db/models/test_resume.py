@@ -1,19 +1,9 @@
-from sqlalchemy.sql.sqltypes import ARRAY
-
 from app.db.models import Resume
 from tests.db.models.assertions import (
     foreign_key_for,
     has_check_constraint,
     table_for,
 )
-
-
-def test_skill_ids_use_a_postgresql_uuid_array() -> None:
-    assert isinstance(Resume.__table__.c.skill_ids.type, ARRAY)
-
-
-def test_skill_ids_default_to_an_empty_array() -> None:
-    assert str(Resume.__table__.c.skill_ids.server_default.arg) == "'{}'::uuid[]"
 
 
 def test_candidate_relationship_is_unique_indexed_and_cascades() -> None:

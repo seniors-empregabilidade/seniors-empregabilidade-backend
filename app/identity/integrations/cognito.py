@@ -27,6 +27,24 @@ from app.identity.exceptions import (
 from app.identity.registered_identity import RegisteredIdentity
 from app.identity.tokens import IdentityTokens
 
+# Password reset failures that are independent of whether the address belongs to
+# a user. Only these may be reported; see start_password_reset.
+ACCOUNT_INDEPENDENT_RESET_FAILURES = frozenset(
+    {
+        "ForbiddenException",
+        "InternalErrorException",
+        "InvalidEmailRoleAccessPolicyException",
+        "InvalidLambdaResponseException",
+        "InvalidSmsRoleAccessPolicyException",
+        "InvalidSmsRoleTrustRelationshipException",
+        "OperationNotEnabledException",
+        "ResourceNotFoundException",
+        "TooManyRequestsException",
+        "UnexpectedLambdaException",
+        "UserLambdaValidationException",
+    }
+)
+
 
 class _SecretHash(TypedDict, total=False):
     SecretHash: str
@@ -195,6 +213,55 @@ class CognitoIdentityProvider:
                 "NotAuthorizedException",
             }:
                 return
+            self._raise_provider_error(exc)
+        except BotoCoreError as exc:
+            raise IdentityProviderUnavailableError from exc
+
+    def start_password_reset(self, *, email: str) -> None:
+        try:
+            self._client.forgot_password(
+                ClientId=self._client_id,
+                Username=email,
+                **self._secret_hash(email),
+            )
+        except ClientError as exc:
+            if exc.response["Error"]["Code"] in ACCOUNT_INDEPENDENT_RESET_FAILURES:
+                self._raise_provider_error(exc)
+            # Every remaining failure describes the account itself: an unknown
+            # address, a deactivated user, a missing verified email, a failed
+            # delivery or a per-user attempt limit. Reporting any of them apart
+            # would turn this endpoint into an oracle for registered addresses,
+            # so the caller always sees the answer given to a delivered code.
+            return
+        except BotoCoreError as exc:
+            raise IdentityProviderUnavailableError from exc
+
+    def confirm_password_reset(self, *, email: str, code: str, password: str) -> None:
+        try:
+            self._client.confirm_forgot_password(
+                ClientId=self._client_id,
+                Username=email,
+                ConfirmationCode=code,
+                Password=password,
+                **self._secret_hash(email),
+            )
+        except ClientError as exc:
+            error_code = exc.response["Error"]["Code"]
+            if error_code in {
+                "InvalidParameterException",
+                "NotAuthorizedException",
+                "UserNotConfirmedException",
+                "UserNotFoundException",
+            }:
+                # A rejected attempt must read the same whether the account is
+                # unknown, deactivated or still waiting for its email confirmation.
+                raise InvalidConfirmationCodeError from exc
+            if error_code == "PasswordHistoryPolicyViolationException":
+                raise IdentityPasswordRejectedError from exc
+            if error_code == "LimitExceededException":
+                # The caller already proved it holds a code, so reporting the
+                # per-user attempt limit discloses nothing about the account.
+                raise IdentityRateLimitError from exc
             self._raise_provider_error(exc)
         except BotoCoreError as exc:
             raise IdentityProviderUnavailableError from exc
