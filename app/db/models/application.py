@@ -1,6 +1,13 @@
+from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import CheckConstraint, ForeignKey, SmallInteger, UniqueConstraint
+from sqlalchemy import (
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    SmallInteger,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -36,3 +43,4 @@ class Application(UUIDPrimaryKey, Timestamps, Base):
         server_default=ApplicationStatus.APPLIED.value,
     )
     match_score: Mapped[int | None] = mapped_column(SmallInteger)
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
