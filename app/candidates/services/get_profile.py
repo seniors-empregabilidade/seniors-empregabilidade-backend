@@ -4,6 +4,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.candidates.domain.minimum_age import age_on
 from app.candidates.exceptions import ProfileNotFoundError
 from app.candidates.schemas.profile import (
     EducationResponse,
@@ -17,15 +18,6 @@ from app.db.models.experience import Experience
 from app.db.models.resume import Resume
 from app.db.models.resume_skill import ResumeSkill
 from app.db.models.skill import Skill
-
-
-def calculate_age(birth_date: date, today: date | None = None) -> int:
-    reference = today or date.today()
-    had_birthday = (reference.month, reference.day) >= (
-        birth_date.month,
-        birth_date.day,
-    )
-    return reference.year - birth_date.year - (0 if had_birthday else 1)
 
 
 def get_profile(user_id: UUID, *, session: Session) -> ProfessionalProfileResponse:
@@ -86,7 +78,7 @@ def get_profile(user_id: UUID, *, session: Session) -> ProfessionalProfileRespon
     return ProfessionalProfileResponse(
         id=candidate.id,
         full_name=candidate.full_name,
-        age=calculate_age(candidate.birth_date),
+        age=age_on(candidate.birth_date, date.today()),
         email=user.email,
         phone=candidate.phone,
         city=candidate.city,
