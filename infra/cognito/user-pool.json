@@ -25,7 +25,9 @@
     ]
   },
   "VerificationMessageTemplate": {
-    "DefaultEmailOption": "CONFIRM_WITH_CODE"
+    "DefaultEmailOption": "CONFIRM_WITH_CODE",
+    "EmailSubject": "Seniors \u2014 seu c\u00f3digo de verifica\u00e7\u00e3o",
+    "EmailMessage": "Use o c\u00f3digo {####} para continuar.<br><br>Se voc\u00ea n\u00e3o fez essa solicita\u00e7\u00e3o, ignore este e-mail."
   },
   "MfaConfiguration": "OFF",
   "Policies": {
