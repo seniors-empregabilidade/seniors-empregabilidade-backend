@@ -9,6 +9,7 @@ from app.core.problem_details import PROBLEM_RESPONSE
 from app.db.session import get_session
 from app.jobs.schemas import CreateJobRequest, JobResponse
 from app.jobs.services import publish_job
+from app.skills.schemas import SkillResponse
 
 router = APIRouter(
     prefix="/jobs",
@@ -31,7 +32,10 @@ def create_job(
         company_id=published.company_id,
         title=published.title,
         description=published.description,
-        skill_ids=published.skill_ids,
+        skills=[
+            SkillResponse(id=skill.id, name=skill.name, type=skill.type)
+            for skill in published.skills
+        ],
         work_mode=published.work_mode,
         closing_date=published.closing_date,
         status=published.status,

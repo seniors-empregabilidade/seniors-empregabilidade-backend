@@ -69,6 +69,7 @@ def seed_database(session: Session) -> None:
         Skill,
         id=skill_id,
         name="Python",
+        normalized_name="python",
         type="hard",
         created_at=now,
     )
