@@ -5,6 +5,7 @@ from typing import cast
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from slowapi.errors import RateLimitExceeded
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.middleware import REQUEST_ID_HEADER, get_request_id
@@ -135,7 +136,21 @@ async def _handle_unexpected(request: Request, exc: Exception) -> JSONResponse:
     )
 
 
+def _handle_rate_limit(request: Request, exc: Exception) -> JSONResponse:
+    # O slowapi devolveria um JSON próprio; aqui ele entra no mesmo formato
+    # problem-details do resto da API, que os routers já declaram como 429.
+    limit = getattr(exc, "detail", "")
+    return _problem_response(
+        request,
+        status_code=429,
+        title="Too Many Requests",
+        code="rate_limited",
+        detail=f"Too many requests. Limit: {limit}." if limit else "Too many requests.",
+    )
+
+
 def register_exception_handlers(app: FastAPI) -> None:
+    app.add_exception_handler(RateLimitExceeded, _handle_rate_limit)
     app.add_exception_handler(ProblemException, _handle_problem)
     app.add_exception_handler(RequestValidationError, _handle_validation)
     app.add_exception_handler(StarletteHTTPException, _handle_http)
