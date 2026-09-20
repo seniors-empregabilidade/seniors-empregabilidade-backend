@@ -7,6 +7,8 @@ from sqlalchemy.orm import Session
 from app.applications.schemas.application_summary_response import (
     ApplicationSummaryResponse,
 )
+from app.applications.schemas.similar_job_response import SimilarJobResponse
+from app.applications.services.application_summary import ApplicationSummary
 from app.applications.services.list_my_applications import list_my_applications
 from app.applications.services.withdraw_application import withdraw_application
 from app.auth.dependencies import require_candidate
@@ -21,6 +23,24 @@ router = APIRouter(
 )
 
 
+def _to_response(summary: ApplicationSummary) -> ApplicationSummaryResponse:
+    return ApplicationSummaryResponse(
+        id=summary.id,
+        job_id=summary.job_id,
+        job_title=summary.job_title,
+        company_name=summary.company_name,
+        submitted_at=summary.submitted_at,
+        days_in_process=summary.days_in_process,
+        status=summary.status,
+        similar_jobs=[
+            SimilarJobResponse(
+                id=job.id, title=job.title, company_name=job.company_name
+            )
+            for job in summary.similar_jobs
+        ],
+    )
+
+
 @router.get("/me", response_model=list[ApplicationSummaryResponse])
 def read_my_applications(
     response: Response,
@@ -32,9 +52,10 @@ def read_my_applications(
     ] = None,
 ) -> list[ApplicationSummaryResponse]:
     response.headers["Cache-Control"] = "no-store"
-    return list_my_applications(
+    summaries = list_my_applications(
         session, candidate_id=user.id, company_name=company_name
     )
+    return [_to_response(summary) for summary in summaries]
 
 
 @router.post(
@@ -49,6 +70,7 @@ def withdraw_my_application(
     session: Annotated[Session, Depends(get_session)],
 ) -> ApplicationSummaryResponse:
     response.headers["Cache-Control"] = "no-store"
-    return withdraw_application(
+    summary = withdraw_application(
         session, application_id=application_id, candidate_id=user.id
     )
+    return _to_response(summary)

@@ -9,6 +9,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import delete
 
+from app.applications.domain.policies.local_date import to_local_date
 from app.db.models import (
     Application,
     AppUser,
@@ -90,6 +91,18 @@ class ApplicationsScenario:
     job_withdrawn_id: UUID
     """Hosted by the Acme company; backs the owner's already-withdrawn
     application, kept separate from the skill-matching jobs above."""
+    job_closing_pivot_id: UUID
+    """Published; shares a dedicated skill only with `job_closing_today_id`
+    and `job_expired_id`, isolating the closing-date filter tests from the
+    shared-skill ranking tests above."""
+    job_closing_today_id: UUID
+    """Published, shares a skill with `job_closing_pivot_id`, and its
+    `closing_date` is exactly today (in `LOCAL_TIMEZONE`): still open, so it
+    must be suggested."""
+    job_expired_id: UUID
+    """Published, shares a skill with `job_closing_pivot_id`, but its
+    `closing_date` was yesterday (in `LOCAL_TIMEZONE`): no longer open, so it
+    must never be suggested."""
     application_not_selected_id: UUID
     application_active_id: UUID
     application_withdrawn_id: UUID
@@ -173,20 +186,32 @@ def scenario() -> Iterator[ApplicationsScenario]:
         skill_python = Skill(name="Applications Python", type="hard")
         skill_english = Skill(name="Applications English", type="soft")
         skill_spanish = Skill(name="Applications Spanish", type="soft")
-        session.add_all([skill_python, skill_english, skill_spanish])
+        # Dedicated to the closing-date filter tests below, so it never
+        # overlaps with the shared-skill ranking scenario above.
+        skill_french = Skill(name="Applications French", type="soft")
+        session.add_all([skill_python, skill_english, skill_spanish, skill_french])
         session.flush()
-        skill_ids.extend((skill_python.id, skill_english.id, skill_spanish.id))
+        skill_ids.extend(
+            (skill_python.id, skill_english.id, skill_spanish.id, skill_french.id)
+        )
 
         far_future = date(2099, 12, 31)
+        today_in_sao_paulo = to_local_date(now)
 
-        def make_job(*, company_id: UUID, status: JobStatus, title: str) -> Job:
+        def make_job(
+            *,
+            company_id: UUID,
+            status: JobStatus,
+            title: str,
+            closing_date: date = far_future,
+        ) -> Job:
             return Job(
                 company_id=company_id,
                 title=title,
                 description="Synthetic job for applications tests.",
                 work_mode="remote",
                 status=status,
-                closing_date=far_future,
+                closing_date=closing_date,
             )
 
         job_target = make_job(
@@ -229,6 +254,23 @@ def scenario() -> Iterator[ApplicationsScenario]:
             status=JobStatus.PUBLISHED,
             title="Applications Withdrawn Role",
         )
+        job_closing_pivot = make_job(
+            company_id=company_acme_user.id,
+            status=JobStatus.PUBLISHED,
+            title="Applications Closing Pivot Role",
+        )
+        job_closing_today = make_job(
+            company_id=company_acme_user.id,
+            status=JobStatus.PUBLISHED,
+            title="Applications Closing Today Role",
+            closing_date=today_in_sao_paulo,
+        )
+        job_expired = make_job(
+            company_id=company_acme_user.id,
+            status=JobStatus.PUBLISHED,
+            title="Applications Expired Role",
+            closing_date=today_in_sao_paulo - timedelta(days=1),
+        )
         session.add_all(
             [
                 job_target,
@@ -239,6 +281,9 @@ def scenario() -> Iterator[ApplicationsScenario]:
                 job_draft,
                 job_active,
                 job_withdrawn,
+                job_closing_pivot,
+                job_closing_today,
+                job_expired,
             ]
         )
         session.flush()
@@ -255,6 +300,9 @@ def scenario() -> Iterator[ApplicationsScenario]:
                 JobSkill(job_id=job_already_applied.id, skill_id=skill_english.id),
                 JobSkill(job_id=job_draft.id, skill_id=skill_python.id),
                 JobSkill(job_id=job_draft.id, skill_id=skill_english.id),
+                JobSkill(job_id=job_closing_pivot.id, skill_id=skill_french.id),
+                JobSkill(job_id=job_closing_today.id, skill_id=skill_french.id),
+                JobSkill(job_id=job_expired.id, skill_id=skill_french.id),
             ]
         )
 
@@ -320,6 +368,9 @@ def scenario() -> Iterator[ApplicationsScenario]:
             job_draft_id=job_draft.id,
             job_active_id=job_active.id,
             job_withdrawn_id=job_withdrawn.id,
+            job_closing_pivot_id=job_closing_pivot.id,
+            job_closing_today_id=job_closing_today.id,
+            job_expired_id=job_expired.id,
             application_not_selected_id=application_not_selected.id,
             application_active_id=application_active.id,
             application_withdrawn_id=application_withdrawn.id,

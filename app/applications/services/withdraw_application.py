@@ -9,9 +9,7 @@ from app.applications.exceptions import (
     ApplicationAlreadyClosedError,
     ApplicationNotFoundError,
 )
-from app.applications.schemas.application_summary_response import (
-    ApplicationSummaryResponse,
-)
+from app.applications.services.application_summary import ApplicationSummary
 from app.db.models import Application, Company, Job
 from app.db.models.enums import ApplicationStatus
 
@@ -32,7 +30,7 @@ def withdraw_application(
     application_id: UUID,
     candidate_id: UUID,
     now: datetime | None = None,
-) -> ApplicationSummaryResponse:
+) -> ApplicationSummary:
     """Let the owning candidate leave an active selection process.
 
     This is intentionally irreversible: there is no companion "undo"
@@ -76,7 +74,7 @@ def withdraw_application(
             .where(Job.id == application.job_id)
         ).one()
 
-        response = ApplicationSummaryResponse(
+        summary = ApplicationSummary(
             id=application.id,
             job_id=application.job_id,
             job_title=job.job_title,
@@ -88,11 +86,10 @@ def withdraw_application(
                 now=reference_now,
             ),
             status=application.status,
-            closed_reason=None,
             similar_jobs=[],
         )
         session.commit()
     except Exception:
         session.rollback()
         raise
-    return response
+    return summary

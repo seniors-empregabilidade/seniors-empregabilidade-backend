@@ -15,5 +15,4 @@ class ApplicationSummaryResponse(BaseModel):
     submitted_at: datetime
     days_in_process: int
     status: ApplicationStatus
-    closed_reason: str | None = None
     similar_jobs: list[SimilarJobResponse] = Field(default_factory=list)

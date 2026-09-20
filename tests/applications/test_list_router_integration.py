@@ -124,20 +124,18 @@ def test_not_selected_application_includes_similar_job_suggestions(
     assert suggested_ids.index(str(scenario.job_similar_strong_id)) < (
         suggested_ids.index(str(scenario.job_similar_weak_id))
     )
-    assert item["closed_reason"] is None
 
 
-def test_active_application_never_includes_suggestions_or_reason(
+def test_active_application_never_includes_suggestions(
     applications_client: TestClient, scenario: ApplicationsScenario
 ) -> None:
     response = applications_client.get(LIST_PATH, headers=authorization(OWNER_TOKEN))
 
     item = _find(response.json(), scenario.application_active_id)
     assert item["similar_jobs"] == []
-    assert item["closed_reason"] is None
 
 
-def test_candidate_withdrawn_application_never_includes_suggestions_or_reason(
+def test_candidate_withdrawn_application_never_includes_suggestions(
     applications_client: TestClient, scenario: ApplicationsScenario
 ) -> None:
     response = applications_client.get(LIST_PATH, headers=authorization(OWNER_TOKEN))
@@ -145,7 +143,6 @@ def test_candidate_withdrawn_application_never_includes_suggestions_or_reason(
     item = _find(response.json(), scenario.application_withdrawn_id)
     assert item["status"] == "withdrawn"
     assert item["similar_jobs"] == []
-    assert item["closed_reason"] is None
 
 
 def _find(items: list[dict[str, Any]], application_id: object) -> dict[str, Any]:

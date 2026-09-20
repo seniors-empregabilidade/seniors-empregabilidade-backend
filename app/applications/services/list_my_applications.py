@@ -5,17 +5,15 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.applications.domain.policies.days_in_process import days_in_process
-from app.applications.schemas.application_summary_response import (
-    ApplicationSummaryResponse,
-)
+from app.applications.services.application_summary import ApplicationSummary
 from app.applications.services.find_similar_jobs import find_similar_jobs
 from app.db.models import Application, Company, Job
 from app.db.models.enums import ApplicationStatus
 
-# Suggestions and a closing reason are shown only for applications closed
-# without a selection decision. Active applications and applications the
-# candidate withdrew are excluded on purpose (see US-13-T01).
-_STATUSES_WITH_CLOSURE_DETAILS = frozenset({ApplicationStatus.NOT_SELECTED})
+# Suggestions are shown only for applications closed without a selection
+# decision. Active applications and applications the candidate withdrew are
+# excluded on purpose (see docs/APPLICATIONS.md).
+_STATUSES_WITH_SUGGESTIONS = frozenset({ApplicationStatus.NOT_SELECTED})
 
 
 def list_my_applications(
@@ -24,7 +22,7 @@ def list_my_applications(
     candidate_id: UUID,
     company_name: str | None = None,
     now: datetime | None = None,
-) -> list[ApplicationSummaryResponse]:
+) -> list[ApplicationSummary]:
     reference_now = now or datetime.now(UTC)
     company_display_name = func.coalesce(Company.trade_name, Company.legal_name)
 
@@ -48,18 +46,20 @@ def list_my_applications(
 
     rows = session.execute(statement).all()
 
-    responses = []
+    summaries = []
     for row in rows:
-        # No producer sets a closing reason yet (see docs/APPLICATIONS.md); a
-        # future company-side "reject candidate" action must populate one.
-        closed_reason: str | None = None
         similar_jobs = (
-            find_similar_jobs(session, job_id=row.job_id, candidate_id=candidate_id)
-            if row.status in _STATUSES_WITH_CLOSURE_DETAILS
+            find_similar_jobs(
+                session,
+                job_id=row.job_id,
+                candidate_id=candidate_id,
+                now=reference_now,
+            )
+            if row.status in _STATUSES_WITH_SUGGESTIONS
             else []
         )
-        responses.append(
-            ApplicationSummaryResponse(
+        summaries.append(
+            ApplicationSummary(
                 id=row.id,
                 job_id=row.job_id,
                 job_title=row.job_title,
@@ -71,8 +71,7 @@ def list_my_applications(
                     now=reference_now,
                 ),
                 status=row.status,
-                closed_reason=closed_reason,
                 similar_jobs=similar_jobs,
             )
         )
-    return responses
+    return summaries
