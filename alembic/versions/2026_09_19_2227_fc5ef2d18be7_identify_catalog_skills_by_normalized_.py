@@ -6,7 +6,7 @@ the normalized name. The normalization is repeated here instead of imported from
 the application so that this migration keeps describing what it did.
 
 Revision ID: fc5ef2d18be7
-Revises: b0c7da977093
+Revises: 1c381f6d0f82
 Create Date: 2026-09-19 22:27:41.508930+00:00
 
 """
@@ -20,7 +20,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "fc5ef2d18be7"
-down_revision: str | Sequence[str] | None = "b0c7da977093"
+down_revision: str | Sequence[str] | None = "1c381f6d0f82"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
