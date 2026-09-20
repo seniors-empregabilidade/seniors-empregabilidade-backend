@@ -18,7 +18,7 @@ router = APIRouter(
 )
 
 
-# Mesma razão do reenvio de confirmação: dispara e-mail e a cota é diária.
+# Same reason as resending a confirmation: it sends email and the quota is daily.
 @router.post("/send", status_code=202)
 @limiter.limit(SENSITIVE_LIMIT)
 def send_password_reset(

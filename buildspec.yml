@@ -1,5 +1,5 @@
-# Executado pelo CodeBuild a cada merge na main. O projeto e as permissões
-# estão em seniors-empregabilidade-infra (cicd.tf).
+# Run by CodeBuild on every merge to main. The project and its permissions
+# live in seniors-empregabilidade-infra (cicd.tf).
 version: 0.2
 
 env:
@@ -14,16 +14,16 @@ phases:
 
   build:
     commands:
-      # arm64 porque o alvo é Graviton (t4g). O compute do CodeBuild também é
-      # ARM, então o build é nativo — sem emulação.
+      # arm64 because the target is Graviton (t4g). CodeBuild compute is ARM too,
+      # so the build is native with no emulation.
       - TAG="$CODEBUILD_RESOLVED_SOURCE_VERSION"
       - docker build --platform linux/arm64 -t "$ECR_REPO:$TAG" .
 
   post_build:
     commands:
       - docker push "$ECR_REPO:$TAG"
-      # O send-command é assíncrono: sem esperar o resultado, o build ficaria
-      # VERDE com o deploy quebrado. É o erro mais fácil desta arquitetura.
+      # send-command is asynchronous: without waiting, the build would stay GREEN
+      # with a broken deploy. It is the easiest mistake in this architecture.
       - |
         CMD_ID=$(aws ssm send-command \
           --document-name AWS-RunShellScript \

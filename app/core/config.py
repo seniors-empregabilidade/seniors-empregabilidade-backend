@@ -54,8 +54,8 @@ class Settings(BaseSettings):
     cognito_client_id: str = ""
     cognito_client_secret: SecretStr | None = None
 
-    # Ligado em produção, onde o CloudFront está na frente e o IP do socket é
-    # sempre o do edge. Desligado localmente, onde o socket é o cliente.
+    # On in production, where CloudFront is in front and the socket address is
+    # always the edge. Off locally, where the socket is the client.
     trust_proxy_headers: bool = False
 
     @field_validator("database_url")

@@ -21,8 +21,8 @@ router = APIRouter(
 )
 
 
-# Limitado por origem: sem isso, a rota de login é o alvo natural de força
-# bruta, e o WAF que faria esse trabalho é negado pela SCP da conta.
+# Limited per origin: login is the natural brute force target, and WAF, which
+# would do this job, is denied by the account's service control policy.
 @router.post("/login", response_model=LoginResponse)
 @limiter.limit(SENSITIVE_LIMIT)
 def login(

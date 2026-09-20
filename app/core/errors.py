@@ -137,8 +137,8 @@ async def _handle_unexpected(request: Request, exc: Exception) -> JSONResponse:
 
 
 def _handle_rate_limit(request: Request, exc: Exception) -> JSONResponse:
-    # O slowapi devolveria um JSON próprio; aqui ele entra no mesmo formato
-    # problem-details do resto da API, que os routers já declaram como 429.
+    # slowapi would return its own JSON; this keeps the problem-details shape
+    # the rest of the API uses, which the routers already declare as 429.
     limit = getattr(exc, "detail", "")
     return _problem_response(
         request,

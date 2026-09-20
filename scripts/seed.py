@@ -1,3 +1,4 @@
+import os
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from uuid import NAMESPACE_URL, UUID, uuid5
@@ -277,8 +278,12 @@ def seed_database(session: Session) -> None:
 
 def main() -> None:
     settings = get_settings()
-    if settings.app_env not in {"local", "test"}:
-        raise RuntimeError("Seed is allowed only in local and test environments")
+    allowed = settings.app_env in {"local", "test"}
+    if not allowed and os.getenv("SEED_ALLOW_PRODUCTION") != "1":
+        raise RuntimeError(
+            "Seed is allowed only in local and test environments. "
+            "Set SEED_ALLOW_PRODUCTION=1 to seed a deployed database on purpose."
+        )
 
     with get_session_factory().begin() as session:
         seed_database(session)
