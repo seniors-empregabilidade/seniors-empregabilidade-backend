@@ -23,9 +23,9 @@ def isolate_identity_configuration(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.fixture(autouse=True)
 def reset_rate_limiter() -> Iterator[None]:
-    # O limitador guarda contagem em memória de processo, então ela vazaria de
-    # um teste para o outro e faria um teste derrubar o seguinte. Zerar entre
-    # testes mantém o limite ativo — quem quer exercitá-lo o faz de propósito.
+    # The limiter counts in process memory, so it would leak between tests and
+    # make one test break the next. Clearing keeps the limit active for whoever
+    # wants to exercise it on purpose.
     limiter.reset()
     yield
     limiter.reset()

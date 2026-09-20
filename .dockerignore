@@ -17,8 +17,8 @@ Dockerfile
 .dockerignore
 buildspec.yml
 
-# Nunca entra na imagem. Em produção o arquivo é gerado na instância pelo
-# deploy.sh, a partir do Secrets Manager.
+# Never goes into the image. In production the file is written on the instance
+# by deploy.sh, from Secrets Manager.
 .env
 .env.*
 !.env.example

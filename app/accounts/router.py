@@ -27,8 +27,8 @@ def confirm_email(
     return Response(status_code=204)
 
 
-# Dispara e-mail pelo Cognito, cujo remetente padrão tem teto de 50 por dia.
-# Sem limite, cinquenta requisições quebram o cadastro do dia inteiro.
+# Sends email through Cognito, whose default sender is capped at 50 a day.
+# Without a limit, fifty requests break sign-up for the rest of the day.
 @router.post("/send", status_code=202)
 @limiter.limit(SENSITIVE_LIMIT)
 def resend_confirmation(

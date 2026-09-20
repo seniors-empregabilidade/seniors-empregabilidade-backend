@@ -24,66 +24,67 @@ def _request(headers: dict[str, str], client_host: str = "203.0.113.9") -> Reque
     )
 
 
-def test_o_ip_do_visitante_e_o_ultimo_da_cadeia_encaminhada(
+def test_the_viewer_address_is_the_last_forwarded_entry(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    # O cliente controla o começo do X-Forwarded-For; o CloudFront anexa o IP
-    # real no fim. Ler o primeiro elemento deixaria a chave falsificável.
+    # A client controls the start of X-Forwarded-For; CloudFront appends the
+    # real address at the end. Reading the first entry would be forgeable.
     monkeypatch.setenv("TRUST_PROXY_HEADERS", "true")
     get_settings.cache_clear()
 
-    forjado = "1.1.1.1, 2.2.2.2, 198.51.100.7"
-    assert client_identifier(_request({"x-forwarded-for": forjado})) == "198.51.100.7"
+    forged = "1.1.1.1, 2.2.2.2, 198.51.100.7"
+    assert client_identifier(_request({"x-forwarded-for": forged})) == "198.51.100.7"
 
     get_settings.cache_clear()
 
 
-def test_sem_o_cabecalho_esperado_o_erro_e_registrado(
+def test_a_missing_forwarded_header_is_logged_as_an_error(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     monkeypatch.setenv("TRUST_PROXY_HEADERS", "true")
     get_settings.cache_clear()
 
     with caplog.at_level(logging.ERROR, logger="app.rate_limit"):
-        identificador = client_identifier(_request({}))
+        identifier = client_identifier(_request({}))
 
-    assert identificador == "203.0.113.9"
-    assert "x_forwarded_for_ausente" in caplog.text
+    assert identifier == "203.0.113.9"
+    assert "x_forwarded_for_missing" in caplog.text
 
     get_settings.cache_clear()
 
 
-def test_fora_de_proxy_vale_o_ip_do_socket(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_without_a_proxy_the_socket_address_is_used(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setenv("TRUST_PROXY_HEADERS", "false")
     get_settings.cache_clear()
 
-    # Mesmo com o cabeçalho presente, ele é ignorado: sem proxy na frente,
-    # confiar nele seria deixar qualquer cliente escolher a própria chave.
-    pedido = _request({"x-forwarded-for": "9.9.9.9"})
-    assert client_identifier(pedido) == "203.0.113.9"
+    # The header is ignored even when present: with no proxy in front, trusting
+    # it would let any client pick its own key.
+    assert client_identifier(_request({"x-forwarded-for": "9.9.9.9"})) == "203.0.113.9"
 
     get_settings.cache_clear()
 
 
-def test_a_sexta_chamada_seguida_e_recusada_com_problem_details(
+def test_the_sixth_consecutive_call_is_refused_with_problem_details(
     application: FastAPI, client: TestClient
 ) -> None:
-    # Sem provedor configurado, a dependência falha com 503 antes do endpoint —
-    # e o limitador, que roda dentro do endpoint, nunca seria exercitado.
+    # Without a provider the dependency fails with 503 before the endpoint, and
+    # the limiter, which runs inside the endpoint, would never be exercised.
     application.dependency_overrides[get_identity_provider] = FakeIdentityProvider
 
     limiter.reset()
-    caminho = "/api/v1/password-reset/send"
-    corpo = {"email": "pessoa@example.invalid"}
+    path = "/api/v1/password-reset/send"
+    payload = {"email": "person@example.invalid"}
 
-    respostas = [client.post(caminho, json=corpo) for _ in range(6)]
-    assert [r.status_code for r in respostas[:5]] == [202] * 5
+    responses = [client.post(path, json=payload) for _ in range(6)]
+    assert [r.status_code for r in responses[:5]] == [202] * 5
 
-    recusada = respostas[-1]
-    assert recusada.status_code == 429
-    corpo_resposta = recusada.json()
-    assert corpo_resposta["code"] == "rate_limited"
-    assert corpo_resposta["status"] == 429
-    assert corpo_resposta["instance"] == caminho
+    refused = responses[-1]
+    assert refused.status_code == 429
+    body = refused.json()
+    assert body["code"] == "rate_limited"
+    assert body["status"] == 429
+    assert body["instance"] == path
 
     limiter.reset()

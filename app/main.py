@@ -24,8 +24,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     resolved_settings = settings or get_settings()
     configure_logging(resolved_settings.log_level)
 
-    # Em produção a documentação interativa fica fechada: reduz ruído de
-    # varredura, e o contrato já é público pelo repositório.
+    # Interactive docs stay closed in production: less scanner noise, and the
+    # contract is already public through the repository.
     docs_enabled = resolved_settings.app_env != "production"
 
     application = FastAPI(
