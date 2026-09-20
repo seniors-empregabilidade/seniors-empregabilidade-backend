@@ -9,6 +9,7 @@ from app.core.config import Settings, get_settings
 from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging
 from app.core.middleware import REQUEST_ID_HEADER, RequestContextMiddleware
+from app.core.rate_limit import limiter
 from app.db.session import dispose_engine
 from app.health.router import router as health_router
 
@@ -23,11 +24,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     resolved_settings = settings or get_settings()
     configure_logging(resolved_settings.log_level)
 
+    # Em produção a documentação interativa fica fechada: reduz ruído de
+    # varredura, e o contrato já é público pelo repositório.
+    docs_enabled = resolved_settings.app_env != "production"
+
     application = FastAPI(
         title="Seniors - Empregabilidade API",
         version="0.1.0",
         lifespan=lifespan,
+        docs_url="/docs" if docs_enabled else None,
+        redoc_url="/redoc" if docs_enabled else None,
+        openapi_url="/openapi.json" if docs_enabled else None,
     )
+    application.state.limiter = limiter
     register_exception_handlers(application)
 
     application.add_middleware(RequestContextMiddleware)
