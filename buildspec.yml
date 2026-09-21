@@ -1,0 +1,43 @@
+# Run by CodeBuild on every merge to main. The project and its permissions
+# live in seniors-empregabilidade-infra (cicd.tf).
+version: 0.2
+
+env:
+  variables:
+    AWS_REGION: us-east-2
+    ECR_REPO: 951614974043.dkr.ecr.us-east-2.amazonaws.com/seniors-api
+
+phases:
+  pre_build:
+    commands:
+      - aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$ECR_REPO"
+
+  build:
+    commands:
+      # arm64 because the target is Graviton (t4g). CodeBuild compute is ARM too,
+      # so the build is native with no emulation.
+      - TAG="$CODEBUILD_RESOLVED_SOURCE_VERSION"
+      - docker build --platform linux/arm64 -t "$ECR_REPO:$TAG" .
+
+  post_build:
+    commands:
+      - docker push "$ECR_REPO:$TAG"
+      # send-command is asynchronous: without waiting, the build would stay GREEN
+      # with a broken deploy. It is the easiest mistake in this architecture.
+      - |
+        CMD_ID=$(aws ssm send-command \
+          --document-name AWS-RunShellScript \
+          --targets "Key=tag:Project,Values=seniors" \
+          --comment "deploy $TAG" \
+          --parameters "commands=['/opt/seniors/deploy.sh $TAG']" \
+          --query 'Command.CommandId' --output text)
+        echo "SSM command: $CMD_ID"
+        INSTANCE=$(aws ssm list-command-invocations --command-id "$CMD_ID" \
+          --query 'CommandInvocations[0].InstanceId' --output text)
+        aws ssm wait command-executed --command-id "$CMD_ID" --instance-id "$INSTANCE" || true
+        aws ssm get-command-invocation --command-id "$CMD_ID" --instance-id "$INSTANCE" \
+          --query 'StandardOutputContent' --output text
+        STATUS=$(aws ssm get-command-invocation --command-id "$CMD_ID" --instance-id "$INSTANCE" \
+          --query 'Status' --output text)
+        echo "deploy status: $STATUS"
+        test "$STATUS" = "Success"

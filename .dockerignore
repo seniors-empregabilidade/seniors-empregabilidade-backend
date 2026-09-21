@@ -1,0 +1,24 @@
+.git
+.github
+.venv
+.mypy_cache
+.pytest_cache
+.ruff_cache
+__pycache__
+*.py[cod]
+.coverage
+htmlcov
+tests
+docs
+infra
+scripts
+compose.yaml
+Dockerfile
+.dockerignore
+buildspec.yml
+
+# Never goes into the image. In production the file is written on the instance
+# by deploy.sh, from Secrets Manager.
+.env
+.env.*
+!.env.example
