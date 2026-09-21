@@ -2,7 +2,7 @@ from datetime import date
 from typing import Annotated
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, StringConstraints
+from pydantic import BaseModel, ConfigDict, StringConstraints, field_validator
 
 TrimmedName = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=1, max_length=150)
@@ -60,3 +60,10 @@ class ProfessionalProfileUpdateRequest(BaseModel):
     city: TrimmedCity | None = None
     state: TrimmedState | None = None
     summary: str | None = None
+
+    @field_validator("full_name", "phone")
+    @classmethod
+    def reject_explicit_null(cls, value: str | None) -> str | None:
+        if value is None:
+            raise ValueError("This field cannot be cleared.")
+        return value
