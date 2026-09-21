@@ -1,16 +1,29 @@
 from typing import Annotated
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, StringConstraints
+from pydantic import AfterValidator, BaseModel, ConfigDict, StringConstraints
 
 from app.db.models.enums import SkillType
-from app.skills.domain import MAX_SKILL_NAME_LENGTH
+from app.skills.domain import MAX_SKILL_NAME_LENGTH, InvalidSkillNameError, SkillName
+
+
+def _comparable_with_the_catalog(name: str) -> str:
+    try:
+        SkillName.parse(name)
+    except InvalidSkillNameError as exc:
+        raise ValueError(
+            "skill name must have visible characters, no control characters, and at "
+            f"most {MAX_SKILL_NAME_LENGTH} characters once case and accents are removed"
+        ) from exc
+    return name
+
 
 TypedSkillName = Annotated[
     str,
     StringConstraints(
         strip_whitespace=True, min_length=1, max_length=MAX_SKILL_NAME_LENGTH
     ),
+    AfterValidator(_comparable_with_the_catalog),
 ]
 
 

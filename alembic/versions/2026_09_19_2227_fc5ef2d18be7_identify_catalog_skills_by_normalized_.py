@@ -24,9 +24,17 @@ down_revision: str | Sequence[str] | None = "1c381f6d0f82"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
+# Normalizing can make a name longer ("ß" becomes "ss"), so a name that fits
+# skill.name does not always fit this column.
+_NORMALIZED_NAME_LENGTH = 100
+
 
 def upgrade() -> None:
-    op.add_column("skill", sa.Column("normalized_name", sa.String(100), nullable=True))
+    _refuse_names_that_outgrow_the_normalized_column()
+    op.add_column(
+        "skill",
+        sa.Column("normalized_name", sa.String(_NORMALIZED_NAME_LENGTH), nullable=True),
+    )
     _fill_normalized_names()
     _refuse_names_that_became_duplicates()
     op.alter_column("skill", "normalized_name", nullable=False)
@@ -40,6 +48,18 @@ def downgrade() -> None:
     op.create_unique_constraint(op.f("uq_skill_name_type"), "skill", ["name", "type"])
     op.drop_constraint(op.f("uq_skill_normalized_name"), "skill", type_="unique")
     op.drop_column("skill", "normalized_name")
+
+
+def _refuse_names_that_outgrow_the_normalized_column() -> None:
+    names = op.get_bind().scalars(sa.text("SELECT name FROM skill ORDER BY name"))
+    too_long = [
+        name for name in names if len(_normalized(name)) > _NORMALIZED_NAME_LENGTH
+    ]
+    if too_long:
+        raise RuntimeError(
+            f"These skills would exceed {_NORMALIZED_NAME_LENGTH} characters once "
+            "normalized; shorten them first: " + "; ".join(too_long)
+        )
 
 
 def _fill_normalized_names() -> None:
@@ -68,7 +88,12 @@ def _refuse_names_that_became_duplicates() -> None:
 
 
 def _normalized(name: str) -> str:
-    decomposed = unicodedata.normalize("NFKD", " ".join(name.split()).casefold())
-    return "".join(
-        character for character in decomposed if not unicodedata.combining(character)
+    # Accents, accents typed on their own and invisible characters are dropped,
+    # then repeated spaces are collapsed.
+    decomposed = unicodedata.normalize("NFKD", name.casefold())
+    kept = "".join(
+        character
+        for character in decomposed
+        if unicodedata.category(character) not in {"Mn", "Sk", "Cf"}
     )
+    return " ".join(kept.split())

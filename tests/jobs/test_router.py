@@ -5,7 +5,7 @@ from uuid import UUID
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db.models import AppUser, Company, Job, JobSkill, Skill
@@ -243,6 +243,36 @@ def test_a_name_already_in_the_catalog_reuses_the_same_skill(
     assert [skill["id"] for skill in skills] == [str(seeded_ids["skill_id"])]
     assert skills[0]["name"] == "Synthetic Python"
     assert skills[0]["type"] == SkillType.HARD.value
+
+
+@pytest.mark.parametrize(
+    "name",
+    ["ß" * 100, "a" * 99 + "\N{HORIZONTAL ELLIPSIS}", "\N{COMBINING ACUTE ACCENT}"],
+    ids=["sharp-s", "ellipsis", "accent-only"],
+)
+def test_a_skill_name_the_catalog_cannot_compare_is_rejected(
+    jobs_client: TestClient,
+    database_session: Session,
+    name: str,
+) -> None:
+    skills_before = database_session.scalar(select(func.count()).select_from(Skill))
+    jobs_before = database_session.scalar(select(func.count()).select_from(Job))
+
+    response = jobs_client.post(
+        JOBS_PATH,
+        json=valid_payload(skills=[{"name": name, "type": SkillType.HARD.value}]),
+        headers=authorization("company"),
+    )
+
+    assert response.status_code == 422
+    assert response.headers["content-type"].startswith("application/problem+json")
+    assert response.json()["code"] == "validation_error"
+    assert list(response.json()["errors"]) == ["body.skills.0.name"]
+    assert (
+        database_session.scalar(select(func.count()).select_from(Skill))
+        == skills_before
+    )
+    assert database_session.scalar(select(func.count()).select_from(Job)) == jobs_before
 
 
 @pytest.mark.parametrize(

@@ -111,6 +111,21 @@ def test_a_search_without_matches_returns_an_empty_list(
     assert authorized(skills_client, search=f"{MARKER} power bi") == []
 
 
+@pytest.mark.parametrize(
+    "search", ["ß" * 60, "a" * 99 + "\N{HORIZONTAL ELLIPSIS}", "Synthetic\x00"]
+)
+def test_a_search_no_stored_name_could_contain_finds_nothing(
+    skills_client: TestClient, search: str
+) -> None:
+    assert authorized(skills_client, search=search) == []
+
+
+def test_a_search_made_only_of_accents_lists_the_catalog(
+    skills_client: TestClient,
+) -> None:
+    assert authorized(skills_client, search="\N{ACUTE ACCENT}")
+
+
 def test_the_limit_bounds_the_suggestions(skills_client: TestClient) -> None:
     assert len(authorized(skills_client, search=MARKER, limit=2)) == 2
 

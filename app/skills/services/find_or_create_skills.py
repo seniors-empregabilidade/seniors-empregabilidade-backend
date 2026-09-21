@@ -46,6 +46,10 @@ def _create_missing(
     wanted: dict[str, tuple[SkillName, SkillRequest]], *, session: Session
 ) -> None:
     # A concurrent request may have created the same skill a moment earlier.
+    # Every request inserts in the same order, whatever order the names were typed
+    # in, so two requests creating the same new skills wait for each other instead
+    # of each holding a name the other one needs, which PostgreSQL aborts as a
+    # deadlock. The caller still gets the skills in the requested order.
     session.execute(
         insert(Skill)
         .values(
@@ -55,7 +59,7 @@ def _create_missing(
                     "normalized_name": normalized_name,
                     "type": request.type,
                 }
-                for normalized_name, (name, request) in wanted.items()
+                for normalized_name, (name, request) in sorted(wanted.items())
             ]
         )
         .on_conflict_do_nothing(index_elements=["normalized_name"])

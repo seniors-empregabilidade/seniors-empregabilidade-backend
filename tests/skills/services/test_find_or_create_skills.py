@@ -56,11 +56,12 @@ def test_repeated_names_resolve_to_a_single_skill(database_session: Session) -> 
 
 
 def test_the_requested_order_is_preserved(database_session: Session) -> None:
+    # Reverse alphabetical on purpose: new skills are inserted in sorted order.
     found = find_or_create_skills(
-        [requested("Logística"), requested("Negociação")], session=database_session
+        [requested("Negociação"), requested("Logística")], session=database_session
     )
 
-    assert [skill.name for skill in found] == ["Logística", "Negociação"]
+    assert [skill.name for skill in found] == ["Negociação", "Logística"]
 
 
 def test_nothing_requested_creates_nothing(database_session: Session) -> None:

@@ -38,8 +38,6 @@ def publish_job(
     if request.closing_date < reference_date:
         raise ClosingDateInThePastError
 
-    skills = find_or_create_skills(request.skills, session=session)
-
     job = Job(
         company_id=company_id,
         title=request.title,
@@ -50,6 +48,7 @@ def publish_job(
         published_at=published_at,
     )
     try:
+        skills = find_or_create_skills(request.skills, session=session)
         session.add(job)
         session.flush()
         session.add_all(JobSkill(job_id=job.id, skill_id=skill.id) for skill in skills)
