@@ -54,6 +54,10 @@ class Settings(BaseSettings):
     cognito_client_id: str = ""
     cognito_client_secret: SecretStr | None = None
 
+    # On in production, where CloudFront is in front and the socket address is
+    # always the edge. Off locally, where the socket is the client.
+    trust_proxy_headers: bool = False
+
     @field_validator("database_url")
     @classmethod
     def require_psycopg_driver(cls, value: str) -> str:

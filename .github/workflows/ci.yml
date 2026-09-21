@@ -46,7 +46,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v10.0.1
+        uses: astral-sh/setup-uv@v10.1.0
         with:
           version: 0.11.33
           enable-cache: true
@@ -86,3 +86,20 @@ jobs:
 
       - name: Run tests with coverage
         run: uv run --frozen pytest
+
+  image:
+    name: Container image
+    # Runner ARM nativo, gratuito em repositório público. Emular arm64 com QEMU
+    # num runner x86 levaria esta etapa de ~2 para 6-10 min, e um gate lento é
+    # um gate que o time aprende a ignorar.
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      # Um Dockerfile quebrado precisa falhar aqui, no PR, e não no CodeBuild
+      # depois do merge — quando o estrago já é "o deploy não aconteceu".
+      - name: Build production image
+        run: docker build --platform linux/arm64 -t seniors-api:ci .

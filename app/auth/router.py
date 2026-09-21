@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import get_current_user
@@ -9,6 +9,7 @@ from app.auth.schemas.login_request import LoginRequest
 from app.auth.schemas.login_response import LoginResponse
 from app.auth.services.login import authenticate_user
 from app.core.problem_details import PROBLEM_RESPONSE
+from app.core.rate_limit import SENSITIVE_LIMIT, limiter
 from app.db.session import get_session
 from app.identity.dependencies import get_identity_provider
 from app.identity.provider import IdentityProvider
@@ -20,14 +21,18 @@ router = APIRouter(
 )
 
 
+# Limited per origin: login is the natural brute force target, and WAF, which
+# would do this job, is denied by the account's service control policy.
 @router.post("/login", response_model=LoginResponse)
+@limiter.limit(SENSITIVE_LIMIT)
 def login(
-    request: LoginRequest,
+    request: Request,
+    payload: LoginRequest,
     response: Response,
     provider: Annotated[IdentityProvider, Depends(get_identity_provider)],
     session: Annotated[Session, Depends(get_session)],
 ) -> LoginResponse:
-    result = authenticate_user(request, provider=provider, session=session)
+    result = authenticate_user(payload, provider=provider, session=session)
     response.headers["Cache-Control"] = "no-store"
     return result
 

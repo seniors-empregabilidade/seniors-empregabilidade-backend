@@ -22,3 +22,7 @@ def test_parent_foreign_keys_cascade() -> None:
 def test_application_defaults_are_declared() -> None:
     assert Application.__table__.c.type.server_default.arg == "active"
     assert Application.__table__.c.status.server_default.arg == "applied"
+
+
+def test_closed_at_is_nullable() -> None:
+    assert Application.__table__.c.closed_at.nullable is True
