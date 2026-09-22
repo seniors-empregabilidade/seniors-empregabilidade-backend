@@ -20,6 +20,7 @@ from app.db.models.experience import Experience
 from app.db.models.resume import Resume
 from app.db.models.resume_skill import ResumeSkill
 from app.db.models.skill import Skill
+from app.skills.services import CatalogSkill
 
 
 def get_profile(user_id: UUID, *, session: Session) -> ProfileRecord:
@@ -35,7 +36,7 @@ def get_profile(user_id: UUID, *, session: Session) -> ProfileRecord:
 
     experiences: tuple[ExperienceRecord, ...] = ()
     education: tuple[EducationRecord, ...] = ()
-    skills: tuple[str, ...] = ()
+    skills: tuple[CatalogSkill, ...] = ()
 
     if resume is not None:
         experiences = tuple(
@@ -55,8 +56,9 @@ def get_profile(user_id: UUID, *, session: Session) -> ProfileRecord:
             )
         )
         skills = tuple(
-            session.scalars(
-                select(Skill.name)
+            CatalogSkill.of(row)
+            for row in session.scalars(
+                select(Skill)
                 .join(ResumeSkill, ResumeSkill.skill_id == Skill.id)
                 .where(ResumeSkill.resume_id == resume.id)
                 .order_by(Skill.name)

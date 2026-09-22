@@ -17,14 +17,17 @@ from app.candidates.schemas import (
     ProfessionalProfileUpdateRequest,
     ProfessionalRegistrationRequest,
     ProfessionalRegistrationResponse,
+    SkillLinkRequest,
 )
 from app.candidates.services import (
     add_education,
     add_experience,
+    add_skill,
     get_profile,
     register_professional,
     remove_education,
     remove_experience,
+    remove_skill,
     update_education,
     update_experience,
     update_profile,
@@ -38,6 +41,8 @@ from app.core.problem_details import PROBLEM_RESPONSE
 from app.db.session import get_session
 from app.identity.dependencies import get_identity_provider
 from app.identity.provider import IdentityProvider
+from app.skills.schemas import SkillResponse
+from app.skills.services import CatalogSkill
 
 router = APIRouter(
     prefix="/professionals",
@@ -156,6 +161,26 @@ def delete_education(
     remove_education(current_user.id, education_id, session=session)
 
 
+@router.post("/me/skills", response_model=SkillResponse, status_code=201)
+def create_skill_link(
+    request: SkillLinkRequest,
+    current_user: Annotated[CurrentUser, Depends(require_candidate)],
+    session: Annotated[Session, Depends(get_session)],
+    response: Response,
+) -> SkillResponse:
+    response.headers["Cache-Control"] = "no-store"
+    return _skill_response(add_skill(current_user.id, request, session=session))
+
+
+@router.delete("/me/skills/{skill_id}", status_code=204, response_class=Response)
+def delete_skill_link(
+    skill_id: UUID,
+    current_user: Annotated[CurrentUser, Depends(require_candidate)],
+    session: Annotated[Session, Depends(get_session)],
+) -> None:
+    remove_skill(current_user.id, skill_id, session=session)
+
+
 def _profile_response(record: ProfileRecord) -> ProfessionalProfileResponse:
     return ProfessionalProfileResponse(
         id=record.id,
@@ -168,7 +193,7 @@ def _profile_response(record: ProfileRecord) -> ProfessionalProfileResponse:
         summary=record.summary,
         experiences=[_experience_response(item) for item in record.experiences],
         education=[_education_response(item) for item in record.education],
-        skills=list(record.skills),
+        skills=[_skill_response(item) for item in record.skills],
     )
 
 
@@ -192,3 +217,7 @@ def _education_response(record: EducationRecord) -> EducationResponse:
         start_date=record.start_date,
         end_date=record.end_date,
     )
+
+
+def _skill_response(record: CatalogSkill) -> SkillResponse:
+    return SkillResponse(id=record.id, name=record.name, type=record.type)

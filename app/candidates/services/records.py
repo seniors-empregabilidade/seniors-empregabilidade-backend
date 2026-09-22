@@ -4,6 +4,7 @@ from uuid import UUID
 
 from app.db.models.education import Education
 from app.db.models.experience import Experience
+from app.skills.services import CatalogSkill
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,7 +39,7 @@ class ProfileRecord:
     summary: str | None
     experiences: tuple[ExperienceRecord, ...]
     education: tuple[EducationRecord, ...]
-    skills: tuple[str, ...]
+    skills: tuple[CatalogSkill, ...]
 
 
 def experience_record(experience: Experience) -> ExperienceRecord:

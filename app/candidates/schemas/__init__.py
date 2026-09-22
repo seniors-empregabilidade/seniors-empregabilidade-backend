@@ -16,6 +16,7 @@ from app.candidates.schemas.registration import (
     ProfessionalRegistrationRequest,
     ProfessionalRegistrationResponse,
 )
+from app.candidates.schemas.skill_link import SkillLinkRequest
 
 __all__ = [
     "EducationCreateRequest",
@@ -28,4 +29,5 @@ __all__ = [
     "ProfessionalProfileUpdateRequest",
     "ProfessionalRegistrationRequest",
     "ProfessionalRegistrationResponse",
+    "SkillLinkRequest",
 ]

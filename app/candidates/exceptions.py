@@ -106,3 +106,24 @@ class InvalidEducationPeriodError(ProblemException):
             detail="The end date cannot be before the start date.",
             errors={"end_date": ["The end date cannot be before the start date."]},
         )
+
+
+class SkillNotFoundError(ProblemException):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=404,
+            title="Not Found",
+            code="skill_not_found",
+            detail="The skill was not found.",
+        )
+
+
+class SkillAlreadyAddedError(ProblemException):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=409,
+            title="Conflict",
+            code="skill_already_added",
+            detail="The skill is already in the profile.",
+            errors={"skill_id": ["The skill is already in the profile."]},
+        )

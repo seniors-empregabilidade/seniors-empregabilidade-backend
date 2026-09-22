@@ -4,6 +4,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, StringConstraints, field_validator
 
+from app.skills.schemas import SkillResponse
+
 TrimmedName = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=1, max_length=150)
 ]
@@ -51,7 +53,7 @@ class ProfessionalProfileResponse(BaseModel):
     summary: str | None = None
     experiences: list[ExperienceResponse]
     education: list[EducationResponse]
-    skills: list[str]
+    skills: list[SkillResponse]
 
 
 class ProfessionalProfileUpdateRequest(BaseModel):

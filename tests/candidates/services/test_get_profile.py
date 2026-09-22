@@ -104,7 +104,8 @@ def test_profile_includes_resume_experiences_education_and_skills(
         )
     )
 
-    skill = Skill(name=f"Liderança {uuid4().hex[:6]}", type=SkillType.SOFT)
+    name = f"Lideranca {uuid4().hex[:6]}"
+    skill = Skill(name=name, normalized_name=name.casefold(), type=SkillType.SOFT)
     database_session.add(skill)
     database_session.flush()
     database_session.add(ResumeSkill(resume_id=resume.id, skill_id=skill.id))
@@ -117,7 +118,7 @@ def test_profile_includes_resume_experiences_education_and_skills(
     assert profile.experiences[0].company_name == "Log Brasil"
     assert len(profile.education) == 1
     assert profile.education[0].degree == "MBA em Gestão Empresarial"
-    assert profile.skills == (skill.name,)
+    assert [item.name for item in profile.skills] == [skill.name]
 
 
 def test_unknown_user_raises_profile_not_found(database_session: Session) -> None:
