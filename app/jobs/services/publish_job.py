@@ -2,13 +2,13 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from uuid import UUID
 
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import Job, JobSkill, Skill
+from app.db.models import Job, JobSkill
 from app.db.models.enums import JobStatus, WorkMode
-from app.jobs.exceptions import ClosingDateInThePastError, UnknownSkillsError
+from app.jobs.exceptions import ClosingDateInThePastError
 from app.jobs.schemas import CreateJobRequest
+from app.skills.services import CatalogSkill, find_or_create_skills
 
 
 @dataclass(frozen=True, slots=True)
@@ -17,7 +17,7 @@ class PublishedJob:
     company_id: UUID
     title: str
     description: str
-    skill_ids: list[UUID]
+    skills: list[CatalogSkill]
     work_mode: WorkMode
     closing_date: date
     status: JobStatus
@@ -38,9 +38,6 @@ def publish_job(
     if request.closing_date < reference_date:
         raise ClosingDateInThePastError
 
-    skill_ids = _unique_skill_ids(request.skill_ids)
-    _ensure_skills_exist(session, skill_ids)
-
     job = Job(
         company_id=company_id,
         title=request.title,
@@ -51,11 +48,10 @@ def publish_job(
         published_at=published_at,
     )
     try:
+        skills = find_or_create_skills(request.skills, session=session)
         session.add(job)
         session.flush()
-        session.add_all(
-            JobSkill(job_id=job.id, skill_id=skill_id) for skill_id in skill_ids
-        )
+        session.add_all(JobSkill(job_id=job.id, skill_id=skill.id) for skill in skills)
         session.flush()
         session.commit()
     except Exception:
@@ -67,27 +63,10 @@ def publish_job(
         company_id=job.company_id,
         title=job.title,
         description=job.description,
-        skill_ids=skill_ids,
+        skills=skills,
         work_mode=job.work_mode,
         closing_date=job.closing_date,
         status=job.status,
         published_at=published_at,
         created_at=job.created_at,
     )
-
-
-def _unique_skill_ids(skill_ids: list[UUID]) -> list[UUID]:
-    unique: list[UUID] = []
-    seen: set[UUID] = set()
-    for skill_id in skill_ids:
-        if skill_id in seen:
-            continue
-        seen.add(skill_id)
-        unique.append(skill_id)
-    return unique
-
-
-def _ensure_skills_exist(session: Session, skill_ids: list[UUID]) -> None:
-    found = set(session.scalars(select(Skill.id).where(Skill.id.in_(skill_ids))).all())
-    if found != set(skill_ids):
-        raise UnknownSkillsError

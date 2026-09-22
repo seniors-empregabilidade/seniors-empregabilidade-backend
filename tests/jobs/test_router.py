@@ -1,11 +1,11 @@
 from collections.abc import Iterator
 from datetime import date, timedelta
-from uuid import UUID, uuid4
+from uuid import UUID
 
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db.models import AppUser, Company, Job, JobSkill, Skill
@@ -74,7 +74,11 @@ def seeded_ids(database_session: Session) -> dict[str, UUID]:
         primary_cnae="6201501",
         status=CompanyStatus.PENDING,
     )
-    skill = Skill(name="Python", type=SkillType.HARD)
+    skill = Skill(
+        name="Synthetic Python",
+        normalized_name="synthetic python",
+        type=SkillType.HARD,
+    )
     database_session.add_all((approved, pending, skill))
     database_session.flush()
 
@@ -100,11 +104,11 @@ def authorization(role: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {role}"}
 
 
-def valid_payload(skill_id: UUID, **overrides: object) -> dict[str, object]:
+def valid_payload(**overrides: object) -> dict[str, object]:
     payload: dict[str, object] = {
         "title": "Senior Python Developer",
         "description": "Synthetic job description for local tests.",
-        "skill_ids": [str(skill_id)],
+        "skills": [{"name": "Synthetic Python", "type": SkillType.HARD.value}],
         "work_mode": WorkMode.REMOTE.value,
         "closing_date": (date.today() + timedelta(days=30)).isoformat(),
     }
@@ -120,9 +124,7 @@ def test_approved_company_creates_an_open_job(
     closing_date = date.today() + timedelta(days=30)
     response = jobs_client.post(
         JOBS_PATH,
-        json=valid_payload(
-            seeded_ids["skill_id"], closing_date=closing_date.isoformat()
-        ),
+        json=valid_payload(closing_date=closing_date.isoformat()),
         headers=authorization("company"),
     )
 
@@ -130,7 +132,13 @@ def test_approved_company_creates_an_open_job(
     body = response.json()
     assert body["title"] == "Senior Python Developer"
     assert body["description"] == "Synthetic job description for local tests."
-    assert body["skill_ids"] == [str(seeded_ids["skill_id"])]
+    assert body["skills"] == [
+        {
+            "id": str(seeded_ids["skill_id"]),
+            "name": "Synthetic Python",
+            "type": SkillType.HARD.value,
+        }
+    ]
     assert body["work_mode"] == WorkMode.REMOTE.value
     assert body["closing_date"] == closing_date.isoformat()
     assert body["status"] == JobStatus.PUBLISHED.value
@@ -156,7 +164,7 @@ def test_title_and_skills_are_required(
         JOBS_PATH,
         json={
             "description": "Missing required fields.",
-            "skill_ids": [],
+            "skills": [],
             "work_mode": WorkMode.REMOTE.value,
             "closing_date": (date.today() + timedelta(days=30)).isoformat(),
         },
@@ -167,7 +175,7 @@ def test_title_and_skills_are_required(
     assert response.headers["content-type"].startswith("application/problem+json")
     assert response.json()["code"] == "validation_error"
     assert "body.title" in response.json()["errors"]
-    assert "body.skill_ids" in response.json()["errors"]
+    assert "body.skills" in response.json()["errors"]
     assert seeded_ids["skill_id"]
 
 
@@ -177,10 +185,7 @@ def test_closing_date_in_the_past_is_rejected(
 ) -> None:
     response = jobs_client.post(
         JOBS_PATH,
-        json=valid_payload(
-            seeded_ids["skill_id"],
-            closing_date=(date.today() - timedelta(days=1)).isoformat(),
-        ),
+        json=valid_payload(closing_date=(date.today() - timedelta(days=1)).isoformat()),
         headers=authorization("company"),
     )
 
@@ -189,19 +194,85 @@ def test_closing_date_in_the_past_is_rejected(
     assert "closing_date" in response.json()["errors"]
 
 
-def test_unknown_skill_ids_are_rejected(
+def test_a_skill_outside_the_catalog_is_created_with_its_type(
+    jobs_client: TestClient,
+    database_session: Session,
+    seeded_ids: dict[str, UUID],
+) -> None:
+    response = jobs_client.post(
+        JOBS_PATH,
+        json=valid_payload(
+            skills=[
+                {
+                    "name": " Liderança  sintética ",
+                    "type": SkillType.SOFT.value,
+                }
+            ]
+        ),
+        headers=authorization("company"),
+    )
+
+    assert response.status_code == 201
+    created = response.json()["skills"][0]
+    assert created["name"] == "Liderança sintética"
+    assert created["type"] == SkillType.SOFT.value
+    assert UUID(created["id"]) != seeded_ids["skill_id"]
+
+    skill = database_session.get(Skill, UUID(created["id"]))
+    assert skill is not None
+    assert skill.normalized_name == "lideranca sintetica"
+
+
+def test_a_name_already_in_the_catalog_reuses_the_same_skill(
     jobs_client: TestClient,
     seeded_ids: dict[str, UUID],
 ) -> None:
     response = jobs_client.post(
         JOBS_PATH,
-        json=valid_payload(seeded_ids["skill_id"], skill_ids=[str(uuid4())]),
+        json=valid_payload(
+            skills=[
+                {"name": "  sYnThEtIc pYtHoN ", "type": SkillType.SOFT.value},
+                {"name": "Synthetic Python", "type": SkillType.HARD.value},
+            ]
+        ),
+        headers=authorization("company"),
+    )
+
+    assert response.status_code == 201
+    skills = response.json()["skills"]
+    assert [skill["id"] for skill in skills] == [str(seeded_ids["skill_id"])]
+    assert skills[0]["name"] == "Synthetic Python"
+    assert skills[0]["type"] == SkillType.HARD.value
+
+
+@pytest.mark.parametrize(
+    "name",
+    ["ß" * 100, "a" * 99 + "\N{HORIZONTAL ELLIPSIS}", "\N{COMBINING ACUTE ACCENT}"],
+    ids=["sharp-s", "ellipsis", "accent-only"],
+)
+def test_a_skill_name_the_catalog_cannot_compare_is_rejected(
+    jobs_client: TestClient,
+    database_session: Session,
+    name: str,
+) -> None:
+    skills_before = database_session.scalar(select(func.count()).select_from(Skill))
+    jobs_before = database_session.scalar(select(func.count()).select_from(Job))
+
+    response = jobs_client.post(
+        JOBS_PATH,
+        json=valid_payload(skills=[{"name": name, "type": SkillType.HARD.value}]),
         headers=authorization("company"),
     )
 
     assert response.status_code == 422
-    assert response.json()["code"] == "unknown_skills"
-    assert "skill_ids" in response.json()["errors"]
+    assert response.headers["content-type"].startswith("application/problem+json")
+    assert response.json()["code"] == "validation_error"
+    assert list(response.json()["errors"]) == ["body.skills.0.name"]
+    assert (
+        database_session.scalar(select(func.count()).select_from(Skill))
+        == skills_before
+    )
+    assert database_session.scalar(select(func.count()).select_from(Job)) == jobs_before
 
 
 @pytest.mark.parametrize(
@@ -216,7 +287,7 @@ def test_only_approved_companies_can_publish(
 ) -> None:
     response = jobs_client.post(
         JOBS_PATH,
-        json=valid_payload(seeded_ids["skill_id"]),
+        json=valid_payload(),
         headers=authorization(role) if role else {},
     )
 

@@ -183,12 +183,28 @@ def scenario() -> Iterator[ApplicationsScenario]:
             ]
         )
 
-        skill_python = Skill(name="Applications Python", type="hard")
-        skill_english = Skill(name="Applications English", type="soft")
-        skill_spanish = Skill(name="Applications Spanish", type="soft")
+        skill_python = Skill(
+            name="Applications Python",
+            normalized_name="applications python",
+            type="hard",
+        )
+        skill_english = Skill(
+            name="Applications English",
+            normalized_name="applications english",
+            type="soft",
+        )
+        skill_spanish = Skill(
+            name="Applications Spanish",
+            normalized_name="applications spanish",
+            type="soft",
+        )
         # Dedicated to the closing-date filter tests below, so it never
         # overlaps with the shared-skill ranking scenario above.
-        skill_french = Skill(name="Applications French", type="soft")
+        skill_french = Skill(
+            name="Applications French",
+            normalized_name="applications french",
+            type="soft",
+        )
         session.add_all([skill_python, skill_english, skill_spanish, skill_french])
         session.flush()
         skill_ids.extend(
