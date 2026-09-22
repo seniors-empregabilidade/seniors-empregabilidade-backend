@@ -5,6 +5,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from app.db.models.enums import JobStatus, WorkMode
+from app.skills.schemas import SkillRequest, SkillResponse
 
 Title = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=1, max_length=150)
@@ -17,7 +18,7 @@ class CreateJobRequest(BaseModel):
 
     title: Title
     description: Description = ""
-    skill_ids: Annotated[list[UUID], Field(min_length=1, max_length=100)]
+    skills: Annotated[list[SkillRequest], Field(min_length=1, max_length=100)]
     work_mode: WorkMode
     closing_date: date
 
@@ -27,7 +28,7 @@ class JobResponse(BaseModel):
     company_id: UUID
     title: str
     description: str
-    skill_ids: list[UUID]
+    skills: list[SkillResponse]
     work_mode: WorkMode
     closing_date: date
     status: JobStatus
