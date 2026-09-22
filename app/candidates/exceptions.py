@@ -54,3 +54,76 @@ class EmailAlreadyRegisteredError(ProblemException):
             detail="The email is already registered.",
             errors={"email": ["The email is already registered."]},
         )
+
+
+class ProfileNotFoundError(ProblemException):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=404,
+            title="Not Found",
+            code="profile_not_found",
+            detail="The professional profile was not found.",
+        )
+
+
+class ExperienceNotFoundError(ProblemException):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=404,
+            title="Not Found",
+            code="experience_not_found",
+            detail="The experience was not found.",
+        )
+
+
+class InvalidExperiencePeriodError(ProblemException):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=422,
+            title="Validation Error",
+            code="invalid_experience_period",
+            detail="The end date cannot be before the start date.",
+            errors={"end_date": ["The end date cannot be before the start date."]},
+        )
+
+
+class EducationNotFoundError(ProblemException):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=404,
+            title="Not Found",
+            code="education_not_found",
+            detail="The education was not found.",
+        )
+
+
+class InvalidEducationPeriodError(ProblemException):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=422,
+            title="Validation Error",
+            code="invalid_education_period",
+            detail="The end date cannot be before the start date.",
+            errors={"end_date": ["The end date cannot be before the start date."]},
+        )
+
+
+class SkillNotFoundError(ProblemException):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=404,
+            title="Not Found",
+            code="skill_not_found",
+            detail="The skill was not found.",
+        )
+
+
+class SkillAlreadyAddedError(ProblemException):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=409,
+            title="Conflict",
+            code="skill_already_added",
+            detail="The skill is already in the profile.",
+            errors={"skill_id": ["The skill is already in the profile."]},
+        )
