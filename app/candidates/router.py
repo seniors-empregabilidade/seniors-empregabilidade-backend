@@ -1,4 +1,5 @@
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
@@ -6,14 +7,28 @@ from sqlalchemy.orm import Session
 from app.auth.dependencies import require_candidate
 from app.auth.schemas.current_user import CurrentUser
 from app.candidates.schemas import (
+    EducationCreateRequest,
     EducationResponse,
+    EducationUpdateRequest,
+    ExperienceCreateRequest,
     ExperienceResponse,
+    ExperienceUpdateRequest,
     ProfessionalProfileResponse,
     ProfessionalProfileUpdateRequest,
     ProfessionalRegistrationRequest,
     ProfessionalRegistrationResponse,
 )
-from app.candidates.services import get_profile, register_professional, update_profile
+from app.candidates.services import (
+    add_education,
+    add_experience,
+    get_profile,
+    register_professional,
+    remove_education,
+    remove_experience,
+    update_education,
+    update_experience,
+    update_profile,
+)
 from app.candidates.services.records import (
     EducationRecord,
     ExperienceRecord,
@@ -69,6 +84,76 @@ def edit_profile(
 ) -> ProfessionalProfileResponse:
     response.headers["Cache-Control"] = "no-store"
     return _profile_response(update_profile(current_user.id, request, session=session))
+
+
+@router.post("/me/experiences", response_model=ExperienceResponse, status_code=201)
+def create_experience(
+    request: ExperienceCreateRequest,
+    current_user: Annotated[CurrentUser, Depends(require_candidate)],
+    session: Annotated[Session, Depends(get_session)],
+    response: Response,
+) -> ExperienceResponse:
+    response.headers["Cache-Control"] = "no-store"
+    record = add_experience(current_user.id, request, session=session)
+    return _experience_response(record)
+
+
+@router.patch("/me/experiences/{experience_id}", response_model=ExperienceResponse)
+def edit_experience(
+    experience_id: UUID,
+    request: ExperienceUpdateRequest,
+    current_user: Annotated[CurrentUser, Depends(require_candidate)],
+    session: Annotated[Session, Depends(get_session)],
+    response: Response,
+) -> ExperienceResponse:
+    response.headers["Cache-Control"] = "no-store"
+    record = update_experience(current_user.id, experience_id, request, session=session)
+    return _experience_response(record)
+
+
+@router.delete(
+    "/me/experiences/{experience_id}", status_code=204, response_class=Response
+)
+def delete_experience(
+    experience_id: UUID,
+    current_user: Annotated[CurrentUser, Depends(require_candidate)],
+    session: Annotated[Session, Depends(get_session)],
+) -> None:
+    remove_experience(current_user.id, experience_id, session=session)
+
+
+@router.post("/me/education", response_model=EducationResponse, status_code=201)
+def create_education(
+    request: EducationCreateRequest,
+    current_user: Annotated[CurrentUser, Depends(require_candidate)],
+    session: Annotated[Session, Depends(get_session)],
+    response: Response,
+) -> EducationResponse:
+    response.headers["Cache-Control"] = "no-store"
+    record = add_education(current_user.id, request, session=session)
+    return _education_response(record)
+
+
+@router.patch("/me/education/{education_id}", response_model=EducationResponse)
+def edit_education(
+    education_id: UUID,
+    request: EducationUpdateRequest,
+    current_user: Annotated[CurrentUser, Depends(require_candidate)],
+    session: Annotated[Session, Depends(get_session)],
+    response: Response,
+) -> EducationResponse:
+    response.headers["Cache-Control"] = "no-store"
+    record = update_education(current_user.id, education_id, request, session=session)
+    return _education_response(record)
+
+
+@router.delete("/me/education/{education_id}", status_code=204, response_class=Response)
+def delete_education(
+    education_id: UUID,
+    current_user: Annotated[CurrentUser, Depends(require_candidate)],
+    session: Annotated[Session, Depends(get_session)],
+) -> None:
+    remove_education(current_user.id, education_id, session=session)
 
 
 def _profile_response(record: ProfileRecord) -> ProfessionalProfileResponse:
