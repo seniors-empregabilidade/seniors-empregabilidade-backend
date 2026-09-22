@@ -6,10 +6,12 @@ from sqlalchemy.orm import Session
 
 from app.candidates.domain.minimum_age import age_on
 from app.candidates.exceptions import ProfileNotFoundError
-from app.candidates.schemas.profile import (
-    EducationResponse,
-    ExperienceResponse,
-    ProfessionalProfileResponse,
+from app.candidates.services.records import (
+    EducationRecord,
+    ExperienceRecord,
+    ProfileRecord,
+    education_record,
+    experience_record,
 )
 from app.db.models.app_user import AppUser
 from app.db.models.candidate import Candidate
@@ -20,7 +22,7 @@ from app.db.models.resume_skill import ResumeSkill
 from app.db.models.skill import Skill
 
 
-def get_profile(user_id: UUID, *, session: Session) -> ProfessionalProfileResponse:
+def get_profile(user_id: UUID, *, session: Session) -> ProfileRecord:
     candidate = session.get(Candidate, user_id)
     if candidate is None:
         raise ProfileNotFoundError()
@@ -31,42 +33,28 @@ def get_profile(user_id: UUID, *, session: Session) -> ProfessionalProfileRespon
 
     resume = session.scalar(select(Resume).where(Resume.candidate_id == user_id))
 
-    experiences: list[ExperienceResponse] = []
-    education: list[EducationResponse] = []
-    skills: list[str] = []
+    experiences: tuple[ExperienceRecord, ...] = ()
+    education: tuple[EducationRecord, ...] = ()
+    skills: tuple[str, ...] = ()
 
     if resume is not None:
-        experiences = [
-            ExperienceResponse(
-                id=row.id,
-                role=row.role,
-                company_name=row.company_name,
-                start_date=row.start_date,
-                end_date=row.end_date,
-                description=row.description,
-            )
+        experiences = tuple(
+            experience_record(row)
             for row in session.scalars(
                 select(Experience)
                 .where(Experience.resume_id == resume.id)
-                .order_by(Experience.start_date.desc())
+                .order_by(Experience.start_date.desc(), Experience.id)
             )
-        ]
-
-        education = [
-            EducationResponse(
-                id=row.id,
-                institution=row.institution,
-                degree=row.degree,
-                field=row.field,
-                start_date=row.start_date,
-                end_date=row.end_date,
-            )
+        )
+        education = tuple(
+            education_record(row)
             for row in session.scalars(
-                select(Education).where(Education.resume_id == resume.id)
+                select(Education)
+                .where(Education.resume_id == resume.id)
+                .order_by(Education.start_date.desc().nulls_last(), Education.id)
             )
-        ]
-
-        skills = list(
+        )
+        skills = tuple(
             session.scalars(
                 select(Skill.name)
                 .join(ResumeSkill, ResumeSkill.skill_id == Skill.id)
@@ -75,7 +63,7 @@ def get_profile(user_id: UUID, *, session: Session) -> ProfessionalProfileRespon
             )
         )
 
-    return ProfessionalProfileResponse(
+    return ProfileRecord(
         id=candidate.id,
         full_name=candidate.full_name,
         age=age_on(candidate.birth_date, date.today()),
@@ -83,7 +71,6 @@ def get_profile(user_id: UUID, *, session: Session) -> ProfessionalProfileRespon
         phone=candidate.phone,
         city=candidate.city,
         state=candidate.state,
-        photo_url=None,
         summary=resume.summary if resume else None,
         experiences=experiences,
         education=education,

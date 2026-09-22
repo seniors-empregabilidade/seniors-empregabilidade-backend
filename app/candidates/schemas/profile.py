@@ -13,6 +13,9 @@ TrimmedPhone = Annotated[
 TrimmedCity = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)
 ]
+TrimmedSummary = Annotated[
+    str, StringConstraints(strip_whitespace=True, max_length=2000)
+]
 TrimmedState = Annotated[
     str,
     StringConstraints(strip_whitespace=True, to_upper=True, min_length=2, max_length=2),
@@ -46,7 +49,6 @@ class ProfessionalProfileResponse(BaseModel):
     city: str | None = None
     state: str | None = None
     summary: str | None = None
-    photo_url: str | None = None
     experiences: list[ExperienceResponse]
     education: list[EducationResponse]
     skills: list[str]
@@ -59,7 +61,7 @@ class ProfessionalProfileUpdateRequest(BaseModel):
     phone: TrimmedPhone | None = None
     city: TrimmedCity | None = None
     state: TrimmedState | None = None
-    summary: str | None = None
+    summary: TrimmedSummary | None = None
 
     @field_validator("full_name", "phone")
     @classmethod

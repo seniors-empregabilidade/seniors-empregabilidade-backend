@@ -6,12 +6,19 @@ from sqlalchemy.orm import Session
 from app.auth.dependencies import require_candidate
 from app.auth.schemas.current_user import CurrentUser
 from app.candidates.schemas import (
+    EducationResponse,
+    ExperienceResponse,
     ProfessionalProfileResponse,
     ProfessionalProfileUpdateRequest,
     ProfessionalRegistrationRequest,
     ProfessionalRegistrationResponse,
 )
 from app.candidates.services import get_profile, register_professional, update_profile
+from app.candidates.services.records import (
+    EducationRecord,
+    ExperienceRecord,
+    ProfileRecord,
+)
 from app.core.problem_details import PROBLEM_RESPONSE
 from app.db.session import get_session
 from app.identity.dependencies import get_identity_provider
@@ -50,7 +57,7 @@ def read_profile(
     response: Response,
 ) -> ProfessionalProfileResponse:
     response.headers["Cache-Control"] = "no-store"
-    return get_profile(current_user.id, session=session)
+    return _profile_response(get_profile(current_user.id, session=session))
 
 
 @router.patch("/me", response_model=ProfessionalProfileResponse)
@@ -61,4 +68,42 @@ def edit_profile(
     response: Response,
 ) -> ProfessionalProfileResponse:
     response.headers["Cache-Control"] = "no-store"
-    return update_profile(current_user.id, request, session=session)
+    return _profile_response(update_profile(current_user.id, request, session=session))
+
+
+def _profile_response(record: ProfileRecord) -> ProfessionalProfileResponse:
+    return ProfessionalProfileResponse(
+        id=record.id,
+        full_name=record.full_name,
+        age=record.age,
+        email=record.email,
+        phone=record.phone,
+        city=record.city,
+        state=record.state,
+        summary=record.summary,
+        experiences=[_experience_response(item) for item in record.experiences],
+        education=[_education_response(item) for item in record.education],
+        skills=list(record.skills),
+    )
+
+
+def _experience_response(record: ExperienceRecord) -> ExperienceResponse:
+    return ExperienceResponse(
+        id=record.id,
+        role=record.role,
+        company_name=record.company_name,
+        start_date=record.start_date,
+        end_date=record.end_date,
+        description=record.description,
+    )
+
+
+def _education_response(record: EducationRecord) -> EducationResponse:
+    return EducationResponse(
+        id=record.id,
+        institution=record.institution,
+        degree=record.degree,
+        field=record.field,
+        start_date=record.start_date,
+        end_date=record.end_date,
+    )

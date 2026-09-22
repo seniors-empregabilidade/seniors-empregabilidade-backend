@@ -159,3 +159,25 @@ def test_profile_responses_are_not_cached(
 
     assert get_response.headers["Cache-Control"] == "no-store"
     assert patch_response.headers["Cache-Control"] == "no-store"
+
+
+def test_summary_has_a_length_limit(
+    client: TestClient, provider: FakeIdentityProvider
+) -> None:
+    add_candidate()
+
+    response = client.patch(PROFILE_PATH, json={"summary": "x" * 2001}, headers=AUTH)
+
+    assert response.status_code == 422
+    assert "body.summary" in response.json()["errors"]
+
+
+def test_profile_has_no_photo_url(
+    client: TestClient, provider: FakeIdentityProvider
+) -> None:
+    add_candidate()
+
+    response = client.get(PROFILE_PATH, headers=AUTH)
+
+    assert response.status_code == 200
+    assert "photo_url" not in response.json()

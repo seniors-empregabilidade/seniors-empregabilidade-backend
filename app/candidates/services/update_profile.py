@@ -4,11 +4,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.candidates.exceptions import ProfileNotFoundError
-from app.candidates.schemas.profile import (
-    ProfessionalProfileResponse,
-    ProfessionalProfileUpdateRequest,
-)
+from app.candidates.schemas.profile import ProfessionalProfileUpdateRequest
 from app.candidates.services.get_profile import get_profile
+from app.candidates.services.records import ProfileRecord
 from app.db.models.candidate import Candidate
 from app.db.models.resume import Resume
 
@@ -18,7 +16,7 @@ def update_profile(
     request: ProfessionalProfileUpdateRequest,
     *,
     session: Session,
-) -> ProfessionalProfileResponse:
+) -> ProfileRecord:
     try:
         candidate = session.get(Candidate, user_id)
         if candidate is None:

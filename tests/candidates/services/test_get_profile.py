@@ -69,9 +69,9 @@ def test_profile_without_a_resume_returns_empty_collections(
     profile = get_profile(user.id, session=database_session)
 
     assert profile.summary is None
-    assert profile.experiences == []
-    assert profile.education == []
-    assert profile.skills == []
+    assert profile.experiences == ()
+    assert profile.education == ()
+    assert profile.skills == ()
 
 
 def test_profile_includes_resume_experiences_education_and_skills(
@@ -117,9 +117,37 @@ def test_profile_includes_resume_experiences_education_and_skills(
     assert profile.experiences[0].company_name == "Log Brasil"
     assert len(profile.education) == 1
     assert profile.education[0].degree == "MBA em Gestão Empresarial"
-    assert profile.skills == [skill.name]
+    assert profile.skills == (skill.name,)
 
 
 def test_unknown_user_raises_profile_not_found(database_session: Session) -> None:
     with pytest.raises(ProfileNotFoundError):
         get_profile(uuid4(), session=database_session)
+
+
+def test_education_is_ordered_by_most_recent_start_date(
+    database_session: Session,
+) -> None:
+    user = _create_candidate(database_session)
+    resume = Resume(candidate_id=user.id)
+    database_session.add(resume)
+    database_session.flush()
+    for year in (2005, 2015, 2010):
+        database_session.add(
+            Education(
+                resume_id=resume.id,
+                institution=f"Instituicao {year}",
+                start_date=date(year, 1, 1),
+            )
+        )
+    database_session.add(Education(resume_id=resume.id, institution="Sem data"))
+    database_session.flush()
+
+    profile = get_profile(user.id, session=database_session)
+
+    assert [item.institution for item in profile.education] == [
+        "Instituicao 2015",
+        "Instituicao 2010",
+        "Instituicao 2005",
+        "Sem data",
+    ]
