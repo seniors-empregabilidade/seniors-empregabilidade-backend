@@ -1,29 +1,74 @@
-# Candidate application list and withdrawal (US-13-T01)
+# Candidate applications: submit, list, and withdraw (US-12-T01, US-13-T01)
 
-This module lets an authenticated candidate read their own applications and
-leave an active selection process. It reuses the existing `application`,
-`job`, `company`, `job_skill` and `skill` persistence models, and the `app/jobs`
-product module (job publishing, from #23); it does not introduce a new domain.
+This module lets an authenticated candidate apply to an open job, read their
+own applications, and leave an active selection process. It reuses the
+existing `application`, `job`, `company`, `job_skill`, `resume`, `resume_skill`
+and `skill` persistence models, and the `app/jobs` (job publishing, #23) and
+`app/skills` (catalog, #25) product modules; it does not introduce a new
+domain.
 
 ## Endpoints
 
-1. `GET /api/v1/applications/me` requires `require_candidate`. It returns every
+1. `POST /api/v1/applications` requires `require_candidate`. It registers the
+   caller's application to `job_id` (never a candidate ID from the request
+   body — that is always the authenticated caller). The job must be open
+   (published and within `closing_date`); a duplicate application to the same
+   job, by the same candidate, is rejected. See "Decisions" below for the
+   compatibility calculation and the concurrency guarantee.
+2. `GET /api/v1/applications/me` requires `require_candidate`. It returns every
    application owned by the caller — never another candidate's — each with the
    job title, the company display name (trade name, falling back to legal
    name), the submission date, days in process, and status. An optional
    `company_name` query parameter filters by a case-insensitive partial match
    against that same company display name.
-2. `POST /api/v1/applications/{application_id}/withdraw` requires
+3. `POST /api/v1/applications/{application_id}/withdraw` requires
    `require_candidate`. It moves an active application (`applied`,
    `under_review` or `in_selection_process`) to `withdrawn` and stamps
    `closed_at`. It is intentionally irreversible: there is no endpoint to
    undo a withdrawal.
 
-Both endpoints send `Cache-Control: no-store`, matching the rest of the identity
-surface.
+All three endpoints send `Cache-Control: no-store`, matching the rest of the
+identity surface.
 
 ## Decisions
 
+- **An application's initial status is `under_review`** ("em análise"),
+  chosen from the existing `application_status` enum instead of adding a new
+  value. It is already one of the statuses `withdraw_application` treats as
+  active, so a freshly submitted application can be withdrawn right away.
+- **An open job is published and within its closing date** — the exact
+  criterion `find_similar_jobs` already used: `Job.status == PUBLISHED` and
+  `Job.closing_date >= today` (`today` from `to_local_date`, see below).
+  `submit_application` reuses this instead of redefining it.
+- **Compatibility ("matches X of Y requirements") is computed once, at
+  submission time, and never recalculated.** `matched_requirements` and
+  `total_requirements` (added by migration `b8c94551d715`) are plain
+  `SmallInteger` columns, both nullable to accommodate rows written before
+  this migration. `X`/`Y` are stored explicitly, rather than only a
+  percentage, so a later read of the same application is unaffected by the
+  job's required skills or the candidate's resume skills changing afterward.
+  `application.match_score` — a pre-existing 0-100 percentage column with no
+  producer — is left untouched; see "Known gaps".
+- **The matching itself
+  (`app/applications/domain/policies/requirement_match.py::match_requirements`)
+  is a provisional US-10 stand-in**: a plain set intersection between the
+  job's required skill IDs (`job_skill`) and the candidate's resume skill IDs
+  (`resume_skill`, through the candidate's `resume`), with every skill
+  weighted equally regardless of type (hard/soft) or importance. This mirrors
+  the same provisional pattern already used by `find_similar_jobs` for
+  US-17-T01/US-10-T01. A candidate with no resume yet is treated as having no
+  skills (`matched = 0`), not as an error.
+- **Duplicate applications are prevented by the database, not by a
+  pre-check.** The `(candidate_id, job_id)` unique constraint
+  (`uq_application_candidate_id_job_id`) already existed in the initial
+  schema. `submit_application` still validates the job first (existence,
+  open state) for a clear `404`/`409`, then relies on this constraint for the
+  actual insert: under concurrency, two simultaneous requests both pass the
+  earlier checks, but only one `INSERT` can succeed. The other's
+  `IntegrityError` is translated into `409 application_already_exists`
+  (matching the constraint-name lookup pattern in
+  `app/candidates/services/register_professional.py`), instead of allowing a
+  second row or crashing with a raw database error.
 - **Days in process** counts calendar dates, not hours: from the submission
   date (`application.created_at`) up to today while the application is still
   active, or up to the closing date once it left the pipeline. A candidate who
@@ -61,10 +106,12 @@ surface.
 - **Services return their own value objects, not HTTP DTOs.**
   `list_my_applications` and `withdraw_application` return
   `app.applications.services.application_summary.ApplicationSummary`
-  (a plain, frozen dataclass with no Pydantic/FastAPI dependency), and
-  `find_similar_jobs` returns `list[SimilarJob]` from the same layer.
-  `app/applications/router.py` maps those values to `ApplicationSummaryResponse`
-  / `SimilarJobResponse` for the public contract, following
+  (a plain, frozen dataclass with no Pydantic/FastAPI dependency);
+  `submit_application` returns its own `SubmittedApplication` the same way;
+  `find_similar_jobs` returns `list[SimilarJob]` from the same layer. None of
+  these services import a Pydantic schema. `app/applications/router.py` maps
+  those values to `ApplicationSummaryResponse` / `ApplicationResponse` /
+  `SimilarJobResponse` for the public contract, following
   `docs/development/use-cases.md` and mirroring `publish_job.py`'s
   `PublishedJob` value.
 
@@ -78,18 +125,25 @@ surface.
   the column where that reason is stored (this task deliberately does not add
   a speculative column or field for it) and to populate `application.closed_at`
   too.
-- **No shared skill-matching engine exists yet (US-17-T01/US-10-T01).**
-  `app/jobs` (from #23) only covers publishing a job; `app/skills` (from #25)
-  had not landed on this branch as of this change, so `skill` still has no
-  `normalized_name` column. `app/applications/services/find_similar_jobs.py`
-  is a provisional, minimal stand-in: it ranks other open jobs (published and
-  with `closing_date` on or after today) by a plain skill-id set intersection
-  with the source job, excluding that job itself and every job the candidate
-  already applied to, capped at 5 suggestions. Replace its body with the
-  shared engine once it exists; callers do not need to change.
-- **There is no "apply to a job" endpoint yet.** This task only lists and acts
-  on applications that already exist; test fixtures insert `application` rows
-  directly, mirroring `scripts/seed.py`.
+- **No shared skill-matching/compatibility engine exists yet
+  (US-17-T01/US-10-T01).** `app/jobs` (#23) covers publishing a job and
+  `app/skills` (#25) covers the skill catalog, but neither compares a job's
+  requirements against a candidate's resume with anything beyond a plain
+  ID intersection. `find_similar_jobs` (suggestions) and
+  `match_requirements` (compatibility, this task) are both provisional
+  stand-ins built directly on `job_skill`/`resume_skill`; replace their
+  bodies once the real engine exists — callers do not need to change.
+- **`application.match_score` still has no producer.** It is a pre-existing
+  0-100 percentage column; this task populates the more specific
+  `matched_requirements`/`total_requirements` counts instead, since a single
+  percentage cannot losslessly represent "X of Y". Whoever defines the
+  formula and consumer for `match_score` (e.g., company-side ranking in
+  US-21) can derive it from these two counts, or from the real US-10 engine
+  once it exists.
+- **A candidate can apply without a résumé.** `submit_application` treats a
+  missing `resume` row as zero candidate skills (`matched_requirements = 0`),
+  not as an error; nothing in the confirmed scope requires a résumé before
+  applying.
 
 ## Local verification
 
@@ -100,7 +154,8 @@ uv run uvicorn app.main:app --reload --no-access-log
 ```
 
 Open `/docs`, authorize with a candidate access token, then call
-`GET /api/v1/applications/me` (optionally with `?company_name=...`) and
+`POST /api/v1/applications` (body: `{"job_id": "<uuid of an open job>"}`),
+`GET /api/v1/applications/me` (optionally with `?company_name=...`), and
 `POST /api/v1/applications/{application_id}/withdraw`.
 
 For automated checks, set `RUN_DATABASE_INTEGRATION_TESTS=1` against an

@@ -20,6 +20,13 @@ class Application(UUIDPrimaryKey, Timestamps, Base):
     __table_args__ = (
         UniqueConstraint("candidate_id", "job_id"),
         CheckConstraint("match_score BETWEEN 0 AND 100", name="match_score"),
+        CheckConstraint(
+            "matched_requirements IS NULL OR ("
+            "total_requirements IS NOT NULL AND "
+            "matched_requirements BETWEEN 0 AND total_requirements"
+            ")",
+            name="requirements_range",
+        ),
     )
 
     candidate_id: Mapped[UUID] = mapped_column(
@@ -44,3 +51,5 @@ class Application(UUIDPrimaryKey, Timestamps, Base):
     )
     match_score: Mapped[int | None] = mapped_column(SmallInteger)
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    matched_requirements: Mapped[int | None] = mapped_column(SmallInteger)
+    total_requirements: Mapped[int | None] = mapped_column(SmallInteger)

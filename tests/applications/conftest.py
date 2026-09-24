@@ -17,6 +17,8 @@ from app.db.models import (
     Company,
     Job,
     JobSkill,
+    Resume,
+    ResumeSkill,
     Skill,
 )
 from app.db.models.enums import ApplicationStatus, JobStatus, UserType
@@ -27,6 +29,7 @@ from tests.identity.fakes import FakeIdentityProvider
 
 OWNER_TOKEN = "applications-owner"
 OTHER_TOKEN = "applications-other"
+SUBMIT_TOKEN = "applications-submit-owner"
 
 
 class ApplicationsIdentityProvider(FakeIdentityProvider):
@@ -35,6 +38,7 @@ class ApplicationsIdentityProvider(FakeIdentityProvider):
     _SUBJECTS_BY_TOKEN: ClassVar[dict[str, str]] = {
         OWNER_TOKEN: "subject-applications-owner",
         OTHER_TOKEN: "subject-applications-other",
+        SUBMIT_TOKEN: "subject-applications-submit-owner",
     }
 
     def verify_access_token(self, token: str) -> str:
@@ -394,6 +398,168 @@ def scenario() -> Iterator[ApplicationsScenario]:
                 application_on_already_applied_job.id
             ),
             application_other_candidate_id=application_other_candidate.id,
+        )
+
+    yield result
+
+    with factory.begin() as session:
+        session.execute(delete(AppUser).where(AppUser.id.in_(user_ids)))
+        session.execute(delete(Skill).where(Skill.id.in_(skill_ids)))
+
+
+@dataclass(frozen=True, slots=True)
+class SubmissionScenario:
+    now: datetime
+    owner_id: UUID
+    job_open_id: UUID
+    """Published, closing_date far in the future, requires two skills
+    (`skill_python_id`, `skill_english_id`). The owner's resume only has
+    `skill_python_id`, giving a deliberately partial overlap."""
+    skill_python_id: UUID
+    skill_english_id: UUID
+    job_draft_id: UUID
+    """Not published; applying to it must be rejected."""
+    job_expired_id: UUID
+    """Published, but its `closing_date` was yesterday (in `LOCAL_TIMEZONE`);
+    applying to it must be rejected."""
+    job_already_applied_id: UUID
+    """Published and open, but the owner already has an application to it,
+    so applying again must be rejected as a duplicate."""
+    application_on_already_applied_job_id: UUID
+
+
+@pytest.fixture
+def submission_scenario() -> Iterator[SubmissionScenario]:
+    now = datetime.now(UTC)
+    factory = get_session_factory()
+    user_ids: list[UUID] = []
+    skill_ids: list[UUID] = []
+
+    with factory.begin() as session:
+        owner = AppUser(
+            email="applications-submit-owner@synthetic.example.invalid",
+            identity_subject=ApplicationsIdentityProvider._SUBJECTS_BY_TOKEN[
+                SUBMIT_TOKEN
+            ],
+            user_type=UserType.CANDIDATE,
+        )
+        company_user = AppUser(
+            email="applications-submit-company@synthetic.example.invalid",
+            identity_subject=None,
+            user_type=UserType.COMPANY,
+        )
+        session.add_all([owner, company_user])
+        session.flush()
+        user_ids.extend((owner.id, company_user.id))
+
+        session.add_all(
+            [
+                Candidate(
+                    id=owner.id,
+                    full_name="Applications Submit Owner",
+                    cpf="33366699901",
+                    birth_date=date(1972, 1, 1),
+                    phone="+5551999990002",
+                ),
+                Company(
+                    id=company_user.id,
+                    cnpj="20000000000300",
+                    legal_name="Submission Synthetic Services Ltd.",
+                    trade_name="Submission Synthetic Services",
+                    corporate_email=company_user.email,
+                    status="approved",
+                ),
+            ]
+        )
+
+        skill_python = Skill(
+            name="Submissions Python",
+            normalized_name="submissions python",
+            type="hard",
+        )
+        skill_english = Skill(
+            name="Submissions English",
+            normalized_name="submissions english",
+            type="soft",
+        )
+        session.add_all([skill_python, skill_english])
+        session.flush()
+        skill_ids.extend((skill_python.id, skill_english.id))
+
+        resume = Resume(candidate_id=owner.id)
+        session.add(resume)
+        session.flush()
+        # The owner's resume only covers `skill_python`, deliberately leaving
+        # `skill_english` (also required by `job_open`) unmatched.
+        session.add(ResumeSkill(resume_id=resume.id, skill_id=skill_python.id))
+
+        far_future = date(2099, 12, 31)
+        today_in_sao_paulo = to_local_date(now)
+
+        def make_job(*, status: JobStatus, title: str, closing_date: date) -> Job:
+            return Job(
+                company_id=company_user.id,
+                title=title,
+                description="Synthetic job for application submission tests.",
+                work_mode="remote",
+                status=status,
+                closing_date=closing_date,
+            )
+
+        job_open = make_job(
+            status=JobStatus.PUBLISHED,
+            title="Submission Open Role",
+            closing_date=far_future,
+        )
+        job_draft = make_job(
+            status=JobStatus.DRAFT,
+            title="Submission Draft Role",
+            closing_date=far_future,
+        )
+        job_expired = make_job(
+            status=JobStatus.PUBLISHED,
+            title="Submission Expired Role",
+            closing_date=today_in_sao_paulo - timedelta(days=1),
+        )
+        job_already_applied = make_job(
+            status=JobStatus.PUBLISHED,
+            title="Submission Already Applied Role",
+            closing_date=far_future,
+        )
+        session.add_all([job_open, job_draft, job_expired, job_already_applied])
+        session.flush()
+
+        session.add_all(
+            [
+                JobSkill(job_id=job_open.id, skill_id=skill_python.id),
+                JobSkill(job_id=job_open.id, skill_id=skill_english.id),
+            ]
+        )
+
+        application_on_already_applied_job = Application(
+            candidate_id=owner.id,
+            job_id=job_already_applied.id,
+            status=ApplicationStatus.UNDER_REVIEW,
+            created_at=now - timedelta(days=1),
+            updated_at=now - timedelta(days=1),
+            matched_requirements=0,
+            total_requirements=0,
+        )
+        session.add(application_on_already_applied_job)
+        session.flush()
+
+        result = SubmissionScenario(
+            now=now,
+            owner_id=owner.id,
+            job_open_id=job_open.id,
+            skill_python_id=skill_python.id,
+            skill_english_id=skill_english.id,
+            job_draft_id=job_draft.id,
+            job_expired_id=job_expired.id,
+            job_already_applied_id=job_already_applied.id,
+            application_on_already_applied_job_id=(
+                application_on_already_applied_job.id
+            ),
         )
 
     yield result

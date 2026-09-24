@@ -26,3 +26,12 @@ def test_application_defaults_are_declared() -> None:
 
 def test_closed_at_is_nullable() -> None:
     assert Application.__table__.c.closed_at.nullable is True
+
+
+def test_requirements_range_is_bounded() -> None:
+    assert has_check_constraint(Application, "ck_application_requirements_range")
+
+
+def test_requirement_counts_are_nullable() -> None:
+    assert Application.__table__.c.matched_requirements.nullable is True
+    assert Application.__table__.c.total_requirements.nullable is True
