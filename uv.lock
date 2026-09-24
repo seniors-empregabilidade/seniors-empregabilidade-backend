@@ -1030,7 +1030,7 @@ requires-dist = [
     { name = "psycopg", extras = ["binary"], specifier = ">=3,<4" },
     { name = "pydantic-settings", specifier = ">=2.15.0" },
     { name = "pyjwt", extras = ["crypto"], specifier = ">=2.10,<3" },
-    { name = "slowapi" },
+    { name = "slowapi", specifier = ">=0.1.10,<0.2" },
     { name = "sqlalchemy", specifier = ">=2,<3" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.52.3" },
 ]
