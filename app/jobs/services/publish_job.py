@@ -1,28 +1,14 @@
-from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from uuid import UUID
 
 from sqlalchemy.orm import Session
 
 from app.db.models import Job, JobSkill
-from app.db.models.enums import JobStatus, WorkMode
+from app.db.models.enums import JobStatus
 from app.jobs.exceptions import ClosingDateInThePastError
 from app.jobs.schemas import CreateJobRequest
-from app.skills.services import CatalogSkill, find_or_create_skills
-
-
-@dataclass(frozen=True, slots=True)
-class PublishedJob:
-    id: UUID
-    company_id: UUID
-    title: str
-    description: str
-    skills: list[CatalogSkill]
-    work_mode: WorkMode
-    closing_date: date
-    status: JobStatus
-    published_at: datetime
-    created_at: datetime
+from app.jobs.services.job_record import JobRecord
+from app.skills.services import find_or_create_skills
 
 
 def publish_job(
@@ -32,7 +18,7 @@ def publish_job(
     company_id: UUID,
     today: date | None = None,
     now: datetime | None = None,
-) -> PublishedJob:
+) -> JobRecord:
     reference_date = today or date.today()
     published_at = now or datetime.now(UTC)
     if request.closing_date < reference_date:
@@ -58,15 +44,4 @@ def publish_job(
         session.rollback()
         raise
 
-    return PublishedJob(
-        id=job.id,
-        company_id=job.company_id,
-        title=job.title,
-        description=job.description,
-        skills=skills,
-        work_mode=job.work_mode,
-        closing_date=job.closing_date,
-        status=job.status,
-        published_at=published_at,
-        created_at=job.created_at,
-    )
+    return JobRecord.of(job, skills)
