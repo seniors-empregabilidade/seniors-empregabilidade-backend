@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from app.applications.domain.policies.local_date import to_local_date
+from app.core.local_date import to_local_date
 
 
 def days_in_process(
