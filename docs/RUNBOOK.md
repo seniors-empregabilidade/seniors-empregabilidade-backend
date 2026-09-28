@@ -21,12 +21,16 @@ Merging into `main` triggers CodeBuild, which builds the image, pushes it to
 ECR tagged with the commit SHA, and runs `deploy.sh` on the instance through
 SSM. The build fails when the deployment fails.
 
-Deploy a specific revision by hand:
+Build and deploy a commit that has never been built:
 
 ```sh
 aws codebuild start-build --project-name seniors-api --region us-east-2 \
   --source-version <commit-sha>
 ```
+
+This fails for a commit that already has an image: ECR tags are immutable, so
+the push is rejected. To redeploy an existing image, use the rollback command
+below with that commit's SHA.
 
 ## Rollback
 
@@ -51,8 +55,10 @@ aws ssm send-command --region us-east-2 --instance-ids "$INSTANCE" \
 check, so a manual rollback is only needed for a bad revision that starts
 successfully.
 
-The frontend rolls back from the Amplify console: select the branch, pick an
-earlier build, choose redeploy.
+The frontend is built and published by GitHub Actions, not by Amplify. Roll it
+back by merging a revert, or, faster, by re-running the `Deploy` job of an
+earlier successful run of the `CI` workflow: GitHub re-runs it on the same
+commit. Runs can be re-run for up to 30 days.
 
 ## Shell access
 
@@ -73,8 +79,13 @@ aws ssm start-session --target "$INSTANCE" --region us-east-2 \
   --parameters '{"host":["<rds-endpoint>"],"portNumber":["5432"],"localPortNumber":["15432"]}'
 ```
 
-Then connect to `localhost:15432`. Credentials live in Secrets Manager under
-the ARN recorded in the `/seniors/api/config` SSM parameter.
+Then connect to `localhost:15432`. Credentials live in the Secrets Manager
+secret that RDS manages for the instance:
+
+```sh
+aws rds describe-db-instances --db-instance-identifier seniors-db --region us-east-2 \
+  --query 'DBInstances[0].MasterUserSecret.SecretArn' --output text
+```
 
 ## Configuration
 
@@ -109,11 +120,16 @@ Before a presentation, stop merges from reaching production:
 
 ```sh
 aws codebuild delete-webhook --project-name seniors-api --region us-east-2
-aws amplify update-branch --app-id d25fn01fvkutq4 --branch-name main \
-  --no-enable-auto-build --region us-east-2
+gh workflow disable CI -R seniors-empregabilidade/seniors-empregabilidade-frontend
 ```
 
-Restore by reapplying the Terraform configuration and re-enabling auto build.
+Disabling Amplify auto build does not freeze the frontend: the app has no
+connected repository, and deployments arrive from the frontend `CI` workflow.
+While that workflow is disabled, its required check does not run and frontend
+pull requests wait.
+
+Restore by reapplying the Terraform configuration, which recreates the
+webhook, and by running `gh workflow enable CI` on the frontend repository.
 
 ## Known limitations
 
