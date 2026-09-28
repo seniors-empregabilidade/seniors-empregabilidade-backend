@@ -201,7 +201,7 @@ def manage_jobs_scenario(database_session: Session) -> ManageJobsScenario:
             ),
         )
     )
-    database_session.flush()
+    database_session.commit()
 
     return ManageJobsScenario(
         owner_company_id=owner_company.id,
