@@ -12,6 +12,7 @@ from app.db.session import get_session
 from app.jobs.schemas import (
     CreateJobRequest,
     JobResponse,
+    JobSearchResultResponse,
     JobSummaryResponse,
     UpdateJobRequest,
     UpdateJobStatusRequest,
@@ -22,10 +23,9 @@ from app.jobs.services import (
     change_job_status,
     list_my_jobs,
     publish_job,
+    search_jobs,
     update_job,
 )
-from app.jobs.schemas import CreateJobRequest, JobResponse, JobSearchResultResponse
-from app.jobs.services import publish_job, search_jobs
 from app.skills.schemas import SkillResponse
 from app.skills.services import CatalogSkill
 
@@ -143,6 +143,8 @@ def edit_job_status(
     response.headers["Cache-Control"] = "no-store"
     updated = change_job_status(job_id, request, session=session, company_id=user.id)
     return _to_job_response(updated)
+
+
 @router.get("", response_model=list[JobSearchResultResponse])
 def list_open_jobs(
     response: Response,
