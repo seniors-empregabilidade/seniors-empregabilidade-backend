@@ -77,7 +77,7 @@ identity surface.
 - **Calendar dates are computed in `America/Sao_Paulo`, not UTC.** Both sides
   of every date comparison in this module (days in process, and "is this job
   still open") go through
-  `app/applications/domain/policies/local_date.py::to_local_date`, which
+  `app/core/local_date.py::to_local_date`, which
   converts an aware `datetime` via `ZoneInfo("America/Sao_Paulo")` before
   calling `.date()`. A timestamp stored at 02:00 UTC is already "yesterday
   evening" in that timezone; comparing raw UTC dates would silently shift
@@ -144,6 +144,14 @@ identity surface.
   missing `resume` row as zero candidate skills (`matched_requirements = 0`),
   not as an error; nothing in the confirmed scope requires a résumé before
   applying.
+- **Similar jobs rank by shared skills, not by the candidate's match.**
+  `app/applications/services/find_similar_jobs.py` ranks other open jobs by
+  how many skills they share with the source job, excluding that job itself
+  and every job the candidate already applied to, capped at 5 suggestions.
+  "Open" comes from `app.jobs.services.is_open_at`, the same rule the job
+  search uses (see `docs/JOB_SEARCH.md`). It does not use the candidate
+  compatibility policy of the search: it compares two jobs, and its ranking
+  and limit run in SQL.
 
 ## Local verification
 

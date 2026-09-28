@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import delete
 
-from app.applications.domain.policies.local_date import to_local_date
+from app.core.local_date import to_local_date
 from app.db.models import (
     Application,
     AppUser,
