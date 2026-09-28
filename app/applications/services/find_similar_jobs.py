@@ -5,9 +5,8 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.applications.domain.policies.local_date import to_local_date
 from app.db.models import Application, Company, Job, JobSkill
-from app.db.models.enums import JobStatus
+from app.jobs.services import is_open_at
 
 DEFAULT_SIMILARITY_LIMIT = 5
 
@@ -29,22 +28,12 @@ def find_similar_jobs(
 ) -> list[SimilarJob]:
     """Suggest open jobs that share structured skills with `job_id`.
 
-    An open job is published and still within its closing date (evaluated as
-    a calendar date in `LOCAL_TIMEZONE`, matching `days_in_process`); an
-    expired job is never suggested even if it still shares skills.
-
-    Provisional US-17-T01/US-10-T01 stand-in: there is still no shared
-    skill-matching engine (`app/jobs` only covers publishing a job, and
-    `app/skills` has not landed yet), so this reuses the `job_skill` join
-    table directly and ranks other open jobs by how many skills they share
-    with the given job (simple set intersection, most shared skills first).
-    It excludes the source job itself and every job the candidate already
-    applied to, and caps the result to a small number of suggestions. Replace
-    this function's body with the shared engine once it exists; the call
-    site in `list_my_applications` does not need to change.
+    Ranks other open jobs by how many skills they share with the given job,
+    excluding the source job itself and every job the candidate already
+    applied to. Openness comes from `app.jobs.services.is_open_at`, the same
+    rule the job search uses.
     """
     reference_now = now or datetime.now(UTC)
-    today = to_local_date(reference_now)
 
     shared_skill_count = func.count(JobSkill.skill_id).label("shared_skill_count")
     target_skill_ids = select(JobSkill.skill_id).where(JobSkill.job_id == job_id)
@@ -61,8 +50,7 @@ def find_similar_jobs(
             JobSkill.skill_id.in_(target_skill_ids),
             Job.id != job_id,
             Job.id.not_in(applied_job_ids),
-            Job.status == JobStatus.PUBLISHED,
-            Job.closing_date >= today,
+            is_open_at(reference_now),
         )
         .group_by(Job.id, Job.title, company_display_name)
         .order_by(shared_skill_count.desc(), Job.id)

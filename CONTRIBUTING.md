@@ -57,9 +57,10 @@ The hooks enforce:
 
 - `pre-commit`: Ruff formatting/fixes and strict whole-project mypy
 - `commit-msg`: strict Conventional Commits
-- `pre-push`: Ruff, mypy, pytest, branch coverage, and the 80% gate
+- `pre-push`: Ruff, mypy, pytest with the PostgreSQL integration tests, branch coverage, and the 80% gate
 
-Never bypass hooks with `--no-verify`. Before requesting review, run:
+The integration tests need the local database, so start it with `docker compose up -d`
+before pushing. Never bypass hooks with `--no-verify`. Before requesting review, run:
 
 ```bash
 uv run python scripts/validate.py
