@@ -7,13 +7,13 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.applications.domain.policies.local_date import to_local_date
 from app.applications.domain.policies.requirement_match import match_requirements
 from app.applications.exceptions import (
     ApplicationAlreadyExistsError,
     JobNotFoundError,
     JobNotOpenError,
 )
+from app.core.local_date import to_local_date
 from app.db.models import Application, Job, JobSkill, Resume, ResumeSkill
 from app.db.models.enums import ApplicationStatus, JobStatus
 
