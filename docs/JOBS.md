@@ -5,6 +5,9 @@ endpoints require `require_approved_company`: an anonymous request gets `401`,
 and a candidate, an administrator or a company that is not approved gets `403
 approved_company_required`.
 
+Candidates find published jobs through `GET /jobs`, described in
+[JOB_SEARCH.md](JOB_SEARCH.md).
+
 ## Endpoints
 
 All paths start with `/api/v1`.
@@ -64,5 +67,6 @@ key yet.
 
 - `GET /jobs/me` has no pagination or filters.
 - `closing_date` is compared with the server's calendar date, not the
-  `America/Sao_Paulo` date that `app.applications` uses, so late in the evening
-  in Brazil a closing date of "today" can be rejected as past.
+  `America/Sao_Paulo` date (`app.core.local_date`) that decides whether a job
+  is open, so late in the evening in Brazil a closing date of "today" can be
+  rejected as past.

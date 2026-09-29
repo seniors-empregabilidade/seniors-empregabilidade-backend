@@ -10,8 +10,16 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
-from app.applications.services.find_similar_jobs import find_similar_jobs
-from app.db.models import AppUser, Company, Job, JobSkill, Skill
+from app.db.models import (
+    AppUser,
+    Candidate,
+    Company,
+    Job,
+    JobSkill,
+    Resume,
+    ResumeSkill,
+    Skill,
+)
 from app.db.models.enums import (
     CompanyStatus,
     JobStatus,
@@ -478,34 +486,72 @@ def test_a_failure_while_publishing_leaves_no_partial_job(
     assert listed.json() == []
 
 
-def test_published_skills_are_comparable_by_catalog_identity(
+def test_published_skills_are_matched_against_a_candidate_resume(
     jobs_client: TestClient,
     database_session: Session,
+    seeded_ids: dict[str, UUID],
 ) -> None:
-    first = jobs_client.post(
-        JOBS_PATH,
-        json=valid_payload(
-            title="Synthetic team lead",
-            skills=[
-                {"name": "Gestão de equipes sintética", "type": SkillType.SOFT.value}
-            ],
-        ),
-        headers=authorization("company"),
-    ).json()
-    second = jobs_client.post(
-        JOBS_PATH,
-        json=valid_payload(
-            title="Synthetic operations lead",
-            skills=[
-                {"name": "  GESTAO DE EQUIPES sintetica ", "type": SkillType.HARD.value}
-            ],
-        ),
-        headers=authorization("company"),
-    ).json()
-
-    assert first["skills"] == second["skills"]
-    assert first["skills"][0]["type"] == SkillType.SOFT.value
-    similar = find_similar_jobs(
-        database_session, job_id=UUID(first["id"]), candidate_id=uuid4()
+    # The job search of US-10 compares catalog skill ids, so a skill typed
+    # differently when publishing must resolve to the one on the résumé.
+    candidate_id = database_session.scalars(
+        select(AppUser.id).where(AppUser.identity_subject == "job-candidate")
+    ).one()
+    team_management = Skill(
+        name="Gestão de equipes sintética",
+        normalized_name="gestao de equipes sintetica",
+        type=SkillType.SOFT,
     )
-    assert [job.id for job in similar] == [UUID(second["id"])]
+    database_session.add_all(
+        (
+            Candidate(
+                id=candidate_id,
+                full_name="Synthetic Job Seeker",
+                cpf=f"{uuid4().int % 10**11:011d}",
+                birth_date=date(1970, 1, 1),
+                phone="+5551999990000",
+            ),
+            team_management,
+        )
+    )
+    database_session.flush()
+    resume = Resume(candidate_id=candidate_id)
+    database_session.add(resume)
+    database_session.flush()
+    database_session.add(ResumeSkill(resume_id=resume.id, skill_id=team_management.id))
+    database_session.flush()
+    title = f"Synthetic team lead {uuid4().hex[:8]}"
+
+    published = jobs_client.post(
+        JOBS_PATH,
+        json=valid_payload(
+            title=title,
+            skills=[
+                {
+                    "name": "  GESTAO DE EQUIPES sintetica ",
+                    "type": SkillType.HARD.value,
+                },
+                {"name": "Synthetic Python", "type": SkillType.HARD.value},
+            ],
+        ),
+        headers=authorization("company"),
+    ).json()
+    found = jobs_client.get(
+        JOBS_PATH, params={"search": title}, headers=authorization("candidate")
+    )
+
+    assert published["skills"][0] == {
+        "id": str(team_management.id),
+        "name": "Gestão de equipes sintética",
+        "type": SkillType.SOFT.value,
+    }
+    assert found.status_code == 200
+    assert [job["id"] for job in found.json()] == [published["id"]]
+    assert found.json()[0]["matched_skill_count"] == 1
+    assert found.json()[0]["required_skill_count"] == 2
+    assert found.json()[0]["missing_skills"] == [
+        {
+            "id": str(seeded_ids["skill_id"]),
+            "name": "Synthetic Python",
+            "type": SkillType.HARD.value,
+        }
+    ]
