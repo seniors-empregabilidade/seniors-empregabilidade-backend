@@ -364,7 +364,9 @@ def test_a_published_job_is_listed_for_its_company(
     assert response.headers["cache-control"] == "no-store"
     listed = response.json()
     assert [job["id"] for job in listed] == [created["id"]]
-    assert without_timestamps(listed[0]) == without_timestamps(created)
+    assert without_timestamps(listed[0]) == without_timestamps(created) | {
+        "application_count": 0
+    }
     for timestamp in ("published_at", "created_at"):
         assert datetime.fromisoformat(listed[0][timestamp]) == datetime.fromisoformat(
             created[timestamp]
