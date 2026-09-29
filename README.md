@@ -181,3 +181,8 @@ flow, administrator decision, field errors and local verification.
 
 See [US-04 professional registration](docs/PROFESSIONAL_REGISTRATION.md) for the
 validation, Cognito confirmation, failure recovery and verification steps.
+
+## Job publishing and management
+
+See [US-17 and US-18 jobs](docs/JOBS.md) for publishing, "Minhas vagas",
+editing, closing and reopening, with field errors and transaction guarantees.

@@ -23,6 +23,16 @@ class CreateJobRequest(BaseModel):
     closing_date: date
 
 
+class UpdateJobRequest(BaseModel):
+    """Replaces the editable fields, so an omitted description is not erased."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    title: Title
+    description: Description
+    skills: Annotated[list[SkillRequest], Field(min_length=1, max_length=100)]
+
+
 class JobResponse(BaseModel):
     id: UUID
     company_id: UUID
@@ -32,5 +42,8 @@ class JobResponse(BaseModel):
     work_mode: WorkMode
     closing_date: date
     status: JobStatus
-    published_at: datetime
+    published_at: Annotated[
+        datetime | None,
+        Field(description="Null while the job has never been published."),
+    ]
     created_at: datetime
