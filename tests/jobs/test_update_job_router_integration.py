@@ -3,6 +3,7 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from app.db.models import Job, JobSkill, Skill
@@ -50,6 +51,7 @@ def test_owner_can_edit_title_description_and_skills(
     assert body["description"] == "Updated synthetic description."
     assert [skill["name"] for skill in body["skills"]] == ["Manage Jobs Leadership"]
 
+    database_session.expire_all()
     job = database_session.get(Job, manage_jobs_scenario.open_job_id)
     assert job is not None
     assert job.title == "Manage Jobs Updated Title"
@@ -103,6 +105,7 @@ def test_a_company_cannot_edit_another_companys_job(
 
     assert response.status_code == 404
     assert response.json()["code"] == "job_not_found"
+    database_session.expire_all()
     job = database_session.get(Job, manage_jobs_scenario.other_company_job_id)
     assert job is not None
     assert job.title == "Manage Jobs Foreign Role"
@@ -129,3 +132,62 @@ def test_another_companys_token_cannot_edit_the_owners_job(
 
     assert response.status_code == 404
     assert response.json()["code"] == "job_not_found"
+
+
+def linked_skill_names(session: Session, job_id: object) -> list[str]:
+    return list(
+        session.scalars(
+            select(Skill.name)
+            .join(JobSkill, JobSkill.skill_id == Skill.id)
+            .where(JobSkill.job_id == job_id)
+        ).all()
+    )
+
+
+def test_the_description_cannot_be_omitted(
+    manage_jobs_client: TestClient,
+    database_session: Session,
+    manage_jobs_scenario: ManageJobsScenario,
+) -> None:
+    payload = valid_payload()
+    del payload["description"]
+
+    response = manage_jobs_client.patch(
+        edit_path(manage_jobs_scenario.open_job_id),
+        json=payload,
+        headers=manage_jobs_authorization(MANAGE_JOBS_OWNER_TOKEN),
+    )
+
+    assert response.status_code == 422
+    assert "body.description" in response.json()["errors"]
+    database_session.expire_all()
+    job = database_session.get(Job, manage_jobs_scenario.open_job_id)
+    assert job is not None
+    assert job.description == "Synthetic open role for manage-jobs tests."
+
+
+def test_a_failed_edit_keeps_the_previous_title_and_skills(
+    manage_jobs_client: TestClient,
+    database_session: Session,
+    manage_jobs_scenario: ManageJobsScenario,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def lose_the_connection() -> None:
+        raise OperationalError("COMMIT", {}, Exception("synthetic connection loss"))
+
+    monkeypatch.setattr(database_session, "commit", lose_the_connection)
+    response = manage_jobs_client.patch(
+        edit_path(manage_jobs_scenario.open_job_id),
+        json=valid_payload(
+            skills=[{"name": "Manage Jobs Leadership", "type": SkillType.SOFT.value}]
+        ),
+        headers=manage_jobs_authorization(MANAGE_JOBS_OWNER_TOKEN),
+    )
+    monkeypatch.undo()
+
+    assert response.status_code == 500
+    database_session.expire_all()
+    job = database_session.get(Job, manage_jobs_scenario.open_job_id)
+    assert job is not None
+    assert job.title == "Manage Jobs Open Role"
+    assert linked_skill_names(database_session, job.id) == ["Manage Jobs Python"]

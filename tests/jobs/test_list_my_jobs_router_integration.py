@@ -1,7 +1,11 @@
+from datetime import date, timedelta
+
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session
 
-from app.db.models.enums import JobStatus
+from app.db.models import Job
+from app.db.models.enums import JobStatus, WorkMode
 from tests.jobs.conftest import (
     MANAGE_JOBS_OWNER_TOKEN,
     ManageJobsScenario,
@@ -69,3 +73,57 @@ def test_a_jobs_structured_skills_are_included(
             "type": "hard",
         }
     ]
+
+
+def test_keeps_the_fields_the_minhas_vagas_screen_reads(
+    manage_jobs_client: TestClient, manage_jobs_scenario: ManageJobsScenario
+) -> None:
+    response = manage_jobs_client.get(
+        LIST_PATH, headers=manage_jobs_authorization(MANAGE_JOBS_OWNER_TOKEN)
+    )
+
+    open_job = next(
+        item
+        for item in response.json()
+        if item["id"] == str(manage_jobs_scenario.open_job_id)
+    )
+    assert set(open_job) == {
+        "id",
+        "company_id",
+        "title",
+        "description",
+        "skills",
+        "work_mode",
+        "closing_date",
+        "status",
+        "published_at",
+        "created_at",
+        "application_count",
+    }
+    assert open_job["company_id"] == str(manage_jobs_scenario.owner_company_id)
+
+
+def test_a_job_never_published_is_listed_without_a_publication_date(
+    manage_jobs_client: TestClient,
+    database_session: Session,
+    manage_jobs_scenario: ManageJobsScenario,
+) -> None:
+    draft = Job(
+        company_id=manage_jobs_scenario.owner_company_id,
+        title="Manage Jobs Draft Role",
+        description="Synthetic draft for manage-jobs tests.",
+        work_mode=WorkMode.HYBRID,
+        closing_date=date.today() + timedelta(days=30),
+    )
+    database_session.add(draft)
+    database_session.commit()
+
+    response = manage_jobs_client.get(
+        LIST_PATH, headers=manage_jobs_authorization(MANAGE_JOBS_OWNER_TOKEN)
+    )
+
+    assert response.status_code == 200
+    items = {item["id"]: item for item in response.json()}
+    assert items[str(draft.id)]["status"] == JobStatus.DRAFT.value
+    assert items[str(draft.id)]["published_at"] is None
+    assert len(items) == 3

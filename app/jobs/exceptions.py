@@ -40,3 +40,13 @@ class JobAlreadyClosedError(ProblemException):
             code="job_already_closed",
             detail="This job is already closed.",
         )
+
+
+class JobStatusChangeNotAllowedError(ProblemException):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=409,
+            title="Conflict",
+            code="job_status_change_not_allowed",
+            detail="The job cannot change to this status from its current status.",
+        )

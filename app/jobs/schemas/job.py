@@ -24,10 +24,12 @@ class CreateJobRequest(BaseModel):
 
 
 class UpdateJobRequest(BaseModel):
+    """Replaces the editable fields, so an omitted description is not erased."""
+
     model_config = ConfigDict(extra="forbid")
 
     title: Title
-    description: Description = ""
+    description: Description
     skills: Annotated[list[SkillRequest], Field(min_length=1, max_length=100)]
 
 
