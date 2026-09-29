@@ -32,5 +32,8 @@ class JobResponse(BaseModel):
     work_mode: WorkMode
     closing_date: date
     status: JobStatus
-    published_at: datetime
+    published_at: Annotated[
+        datetime | None,
+        Field(description="Null while the job has never been published."),
+    ]
     created_at: datetime
