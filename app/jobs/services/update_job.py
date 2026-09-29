@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.db.models import Job, JobSkill
 from app.jobs.exceptions import JobNotFoundError
 from app.jobs.schemas import UpdateJobRequest
-from app.jobs.services.job_snapshot import JobSnapshot
+from app.jobs.services.job_record import JobRecord
 from app.skills.services import find_or_create_skills
 
 
@@ -16,7 +16,7 @@ def update_job(
     *,
     session: Session,
     company_id: UUID,
-) -> JobSnapshot:
+) -> JobRecord:
     try:
         job = session.scalar(
             select(Job)
@@ -33,21 +33,10 @@ def update_job(
         session.flush()
         session.add_all(JobSkill(job_id=job.id, skill_id=skill.id) for skill in skills)
         session.flush()
+        record = JobRecord.of(job, skills)
         session.commit()
     except Exception:
         session.rollback()
         raise
 
-    assert job.published_at is not None, "a persisted job is always published"
-    return JobSnapshot(
-        id=job.id,
-        company_id=job.company_id,
-        title=job.title,
-        description=job.description,
-        skills=skills,
-        work_mode=job.work_mode,
-        closing_date=job.closing_date,
-        status=job.status,
-        published_at=job.published_at,
-        created_at=job.created_at,
-    )
+    return record

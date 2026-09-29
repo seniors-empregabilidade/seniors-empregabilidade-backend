@@ -1,3 +1,4 @@
+from collections import defaultdict
 from collections.abc import Sequence
 from uuid import UUID
 
@@ -8,26 +9,20 @@ from app.db.models import JobSkill, Skill
 from app.skills.services import CatalogSkill
 
 
-def skills_of_job(session: Session, job_id: UUID) -> list[CatalogSkill]:
-    skills = session.scalars(
-        select(Skill)
-        .join(JobSkill, JobSkill.skill_id == Skill.id)
-        .where(JobSkill.job_id == job_id)
-        .order_by(Skill.name)
-    ).all()
-    return [CatalogSkill.of(skill) for skill in skills]
+def skills_by_job(
+    job_ids: Sequence[UUID], *, session: Session
+) -> defaultdict[UUID, list[CatalogSkill]]:
+    """Each job's catalog skills sorted by name: the typed order is not stored."""
+    skills: defaultdict[UUID, list[CatalogSkill]] = defaultdict(list)
+    if not job_ids:
+        return skills
 
-
-def skills_of_jobs(
-    session: Session, job_ids: Sequence[UUID]
-) -> dict[UUID, list[CatalogSkill]]:
     rows = session.execute(
         select(JobSkill.job_id, Skill)
         .join(Skill, Skill.id == JobSkill.skill_id)
         .where(JobSkill.job_id.in_(job_ids))
-        .order_by(Skill.name)
-    ).all()
-    skills_by_job: dict[UUID, list[CatalogSkill]] = {}
-    for job_id, skill in rows:
-        skills_by_job.setdefault(job_id, []).append(CatalogSkill.of(skill))
-    return skills_by_job
+        .order_by(Skill.name, Skill.id)
+    )
+    for job_id, skill in rows.tuples():
+        skills[job_id].append(CatalogSkill.of(skill))
+    return skills

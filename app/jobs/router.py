@@ -1,4 +1,3 @@
-from collections.abc import Sequence
 from typing import Annotated
 from uuid import UUID
 
@@ -18,16 +17,15 @@ from app.jobs.schemas import (
     UpdateJobStatusRequest,
 )
 from app.jobs.services import (
-    JobSnapshot,
+    JobRecord,
     JobSummary,
     change_job_status,
-    list_my_jobs,
+    list_company_jobs,
     publish_job,
     search_jobs,
     update_job,
 )
 from app.skills.schemas import SkillResponse
-from app.skills.services import CatalogSkill
 
 DEFAULT_PAGE_SIZE = 20
 MAX_PAGE_SIZE = 100
@@ -41,42 +39,6 @@ router = APIRouter(
 )
 
 
-def _skill_responses(skills: Sequence[CatalogSkill]) -> list[SkillResponse]:
-    return [
-        SkillResponse(id=skill.id, name=skill.name, type=skill.type) for skill in skills
-    ]
-
-
-def _to_job_response(job: JobSnapshot) -> JobResponse:
-    return JobResponse(
-        id=job.id,
-        company_id=job.company_id,
-        title=job.title,
-        description=job.description,
-        skills=_skill_responses(job.skills),
-        work_mode=job.work_mode,
-        closing_date=job.closing_date,
-        status=job.status,
-        published_at=job.published_at,
-        created_at=job.created_at,
-    )
-
-
-def _to_summary_response(job: JobSummary) -> JobSummaryResponse:
-    return JobSummaryResponse(
-        id=job.id,
-        title=job.title,
-        description=job.description,
-        skills=_skill_responses(job.skills),
-        work_mode=job.work_mode,
-        closing_date=job.closing_date,
-        status=job.status,
-        published_at=job.published_at,
-        created_at=job.created_at,
-        application_count=job.application_count,
-    )
-
-
 @router.post("", response_model=JobResponse, status_code=201)
 def create_job(
     request: CreateJobRequest,
@@ -85,19 +47,7 @@ def create_job(
     session: Annotated[Session, Depends(get_session)],
 ) -> JobResponse:
     response.headers["Cache-Control"] = "no-store"
-    published = publish_job(request, session=session, company_id=user.id)
-    return JobResponse(
-        id=published.id,
-        company_id=published.company_id,
-        title=published.title,
-        description=published.description,
-        skills=_skill_responses(published.skills),
-        work_mode=published.work_mode,
-        closing_date=published.closing_date,
-        status=published.status,
-        published_at=published.published_at,
-        created_at=published.created_at,
-    )
+    return _job_response(publish_job(request, session=session, company_id=user.id))
 
 
 @router.get("/me", response_model=list[JobSummaryResponse])
@@ -107,8 +57,10 @@ def read_my_jobs(
     session: Annotated[Session, Depends(get_session)],
 ) -> list[JobSummaryResponse]:
     response.headers["Cache-Control"] = "no-store"
-    jobs = list_my_jobs(session, company_id=user.id)
-    return [_to_summary_response(job) for job in jobs]
+    return [
+        _job_summary_response(summary)
+        for summary in list_company_jobs(session=session, company_id=user.id)
+    ]
 
 
 @router.patch(
@@ -124,8 +76,9 @@ def edit_job(
     session: Annotated[Session, Depends(get_session)],
 ) -> JobResponse:
     response.headers["Cache-Control"] = "no-store"
-    updated = update_job(job_id, request, session=session, company_id=user.id)
-    return _to_job_response(updated)
+    return _job_response(
+        update_job(job_id, request, session=session, company_id=user.id)
+    )
 
 
 @router.patch(
@@ -141,8 +94,9 @@ def edit_job_status(
     session: Annotated[Session, Depends(get_session)],
 ) -> JobResponse:
     response.headers["Cache-Control"] = "no-store"
-    updated = change_job_status(job_id, request, session=session, company_id=user.id)
-    return _to_job_response(updated)
+    return _job_response(
+        change_job_status(job_id, request, session=session, company_id=user.id)
+    )
 
 
 @router.get("", response_model=list[JobSearchResultResponse])
@@ -180,3 +134,28 @@ def list_open_jobs(
         )
         for job in found
     ]
+
+
+def _job_response(record: JobRecord) -> JobResponse:
+    return JobResponse(
+        id=record.id,
+        company_id=record.company_id,
+        title=record.title,
+        description=record.description,
+        skills=[
+            SkillResponse(id=skill.id, name=skill.name, type=skill.type)
+            for skill in record.skills
+        ],
+        work_mode=record.work_mode,
+        closing_date=record.closing_date,
+        status=record.status,
+        published_at=record.published_at,
+        created_at=record.created_at,
+    )
+
+
+def _job_summary_response(summary: JobSummary) -> JobSummaryResponse:
+    return JobSummaryResponse(
+        **_job_response(summary.record).model_dump(),
+        application_count=summary.application_count,
+    )
