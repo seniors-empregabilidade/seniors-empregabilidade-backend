@@ -16,6 +16,11 @@ from app.jobs.schemas import (
     UpdateJobRequest,
     UpdateJobStatusRequest,
 )
+from app.jobs.schemas.job_applicants_response import (
+    ApplicantProfileResponse,
+    JobApplicantResponse,
+    JobApplicantsSummaryResponse,
+)
 from app.jobs.services import (
     JobRecord,
     JobSummary,
@@ -24,6 +29,11 @@ from app.jobs.services import (
     publish_job,
     search_jobs,
     update_job,
+)
+from app.jobs.services.list_job_applicants import (
+    JobApplicant,
+    JobApplicantsSummary,
+    list_job_applicants,
 )
 from app.skills.schemas import SkillResponse
 
@@ -134,6 +144,55 @@ def list_open_jobs(
         )
         for job in found
     ]
+
+
+@router.get(
+    "/{job_id}/applications",
+    response_model=JobApplicantsSummaryResponse,
+    responses={code: PROBLEM_RESPONSE for code in (404,)},
+)
+def list_applicants(
+    job_id: UUID,
+    response: Response,
+    user: Annotated[CurrentUser, Depends(require_approved_company)],
+    session: Annotated[Session, Depends(get_session)],
+) -> JobApplicantsSummaryResponse:
+    """List candidates who applied to a company job, with skill-match data.
+
+    Returns aggregate header (total and full-match count) plus a per-applicant
+    list ordered by match (descending). Only the company that owns the job can
+    call this endpoint; a job from another company is returned as 404.
+    """
+    response.headers["Cache-Control"] = "no-store"
+    summary = list_job_applicants(session, job_id=job_id, company_id=user.id)
+    return _job_applicants_summary_response(summary)
+
+
+def _job_applicants_summary_response(
+    summary: JobApplicantsSummary,
+) -> JobApplicantsSummaryResponse:
+    return JobApplicantsSummaryResponse(
+        job_id=summary.job_id,
+        total_applicant_count=summary.total_applicant_count,
+        full_match_count=summary.full_match_count,
+        applicants=[_job_applicant_response(a) for a in summary.applicants],
+    )
+
+
+def _job_applicant_response(applicant: JobApplicant) -> JobApplicantResponse:
+    return JobApplicantResponse(
+        application_id=applicant.application_id,
+        status=applicant.status,
+        match_score=applicant.match_score,
+        matched_skill_count=applicant.matched_skill_count,
+        required_skill_count=applicant.required_skill_count,
+        profile=ApplicantProfileResponse(
+            candidate_id=applicant.profile.candidate_id,
+            full_name=applicant.profile.full_name,
+            city=applicant.profile.city,
+            state=applicant.profile.state,
+        ),
+    )
 
 
 def _job_response(record: JobRecord) -> JobResponse:

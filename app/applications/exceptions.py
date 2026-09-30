@@ -49,3 +49,15 @@ class JobNotOpenError(ProblemException):
             code="job_not_open",
             detail="This job is not open for applications.",
         )
+
+
+class ApplicationStatusTransitionNotAllowedError(ProblemException):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=409,
+            title="Conflict",
+            code="application_status_transition_not_allowed",
+            detail=(
+                "The application cannot transition to this status from its current status."
+            ),
+        )

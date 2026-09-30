@@ -8,7 +8,7 @@ losslessly represent X and Y (many (X, Y) pairs share the same percentage), so
 this task leaves it untouched and adds two explicit counts instead.
 
 Revision ID: b8c94551d715
-Revises: fc5ef2d18be7
+Revises: a8c3e1f9d047
 Create Date: 2026-09-23 23:05:51.069537+00:00
 
 """
@@ -21,7 +21,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "b8c94551d715"
-down_revision: str | Sequence[str] | None = "fc5ef2d18be7"
+down_revision: str | Sequence[str] | None = "a8c3e1f9d047"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

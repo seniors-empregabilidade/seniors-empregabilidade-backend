@@ -6,6 +6,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     SmallInteger,
+    Text,
     UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column
@@ -53,3 +54,4 @@ class Application(UUIDPrimaryKey, Timestamps, Base):
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     matched_requirements: Mapped[int | None] = mapped_column(SmallInteger)
     total_requirements: Mapped[int | None] = mapped_column(SmallInteger)
+    reason: Mapped[str | None] = mapped_column(Text)
