@@ -6,6 +6,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     SmallInteger,
+    Text,
     UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column
@@ -44,3 +45,4 @@ class Application(UUIDPrimaryKey, Timestamps, Base):
     )
     match_score: Mapped[int | None] = mapped_column(SmallInteger)
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reason: Mapped[str | None] = mapped_column(Text)

@@ -19,3 +19,15 @@ class ApplicationAlreadyClosedError(ProblemException):
             code="application_already_closed",
             detail="This application has already left the selection process.",
         )
+
+
+class ApplicationStatusTransitionNotAllowedError(ProblemException):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=409,
+            title="Conflict",
+            code="application_status_transition_not_allowed",
+            detail=(
+                "The application cannot transition to this status from its current status."
+            ),
+        )
