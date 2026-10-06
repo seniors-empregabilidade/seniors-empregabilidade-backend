@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.db.models import Job, JobSkill, Skill
 from app.db.models.enums import SkillType
 from tests.jobs.conftest import (
+    MANAGE_JOBS_CANDIDATE_TOKEN,
     MANAGE_JOBS_OTHER_TOKEN,
     MANAGE_JOBS_OWNER_TOKEN,
     ManageJobsScenario,
@@ -61,6 +62,44 @@ def test_owner_can_edit_title_description_and_skills(
         .where(JobSkill.job_id == job.id)
     ).all()
     assert linked_skill_names == ["Manage Jobs Leadership"]
+
+
+def test_an_edit_shows_in_minhas_vagas_and_in_the_candidate_search(
+    manage_jobs_client: TestClient, manage_jobs_scenario: ManageJobsScenario
+) -> None:
+    owner = manage_jobs_authorization(MANAGE_JOBS_OWNER_TOKEN)
+    edited = manage_jobs_client.patch(
+        edit_path(manage_jobs_scenario.open_job_id),
+        json=valid_payload(
+            skills=[
+                {"name": "Manage Jobs Python", "type": SkillType.HARD.value},
+                {"name": "Manage Jobs Leadership", "type": SkillType.SOFT.value},
+            ]
+        ),
+        headers=owner,
+    )
+    assert edited.status_code == 200
+
+    mine = manage_jobs_client.get("/api/v1/jobs/me", headers=owner)
+    listed = next(
+        job for job in mine.json() if job["id"] == str(manage_jobs_scenario.open_job_id)
+    )
+    assert listed["title"] == "Manage Jobs Updated Title"
+    assert listed["description"] == "Updated synthetic description."
+    assert [skill["name"] for skill in listed["skills"]] == [
+        "Manage Jobs Leadership",
+        "Manage Jobs Python",
+    ]
+    assert listed["application_count"] == 2
+
+    search = manage_jobs_client.get(
+        "/api/v1/jobs",
+        params={"search": "Manage Jobs"},
+        headers=manage_jobs_authorization(MANAGE_JOBS_CANDIDATE_TOKEN),
+    )
+    found = {job["title"]: job for job in search.json()}
+    assert "Manage Jobs Open Role" not in found
+    assert found["Manage Jobs Updated Title"]["required_skill_count"] == 2
 
 
 def test_title_and_skills_are_required(

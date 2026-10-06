@@ -33,12 +33,14 @@ from tests.identity.fakes import FakeIdentityProvider
 
 MANAGE_JOBS_OWNER_TOKEN = "manage-jobs-owner"
 MANAGE_JOBS_OTHER_TOKEN = "manage-jobs-other"
+MANAGE_JOBS_CANDIDATE_TOKEN = "manage-jobs-candidate"
 
 
 class ManageJobsIdentityProvider(FakeIdentityProvider):
     _SUBJECTS_BY_TOKEN: ClassVar[dict[str, str]] = {
         MANAGE_JOBS_OWNER_TOKEN: "subject-manage-jobs-owner",
         MANAGE_JOBS_OTHER_TOKEN: "subject-manage-jobs-other",
+        MANAGE_JOBS_CANDIDATE_TOKEN: "subject-manage-jobs-candidate-one",
     }
 
     def verify_access_token(self, token: str) -> str:
@@ -103,7 +105,9 @@ def manage_jobs_scenario(database_session: Session) -> ManageJobsScenario:
     )
     candidate_one_user = AppUser(
         email="manage-jobs-candidate-one@candidate.example.invalid",
-        identity_subject=None,
+        identity_subject=ManageJobsIdentityProvider._SUBJECTS_BY_TOKEN[
+            MANAGE_JOBS_CANDIDATE_TOKEN
+        ],
         user_type=UserType.CANDIDATE,
     )
     candidate_two_user = AppUser(

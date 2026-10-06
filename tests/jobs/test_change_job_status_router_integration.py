@@ -8,8 +8,8 @@ from sqlalchemy.orm import Session
 from app.core.local_date import to_local_date
 from app.db.models import Job
 from app.db.models.enums import JobStatus, WorkMode
-from app.jobs.services import search_jobs
 from tests.jobs.conftest import (
+    MANAGE_JOBS_CANDIDATE_TOKEN,
     MANAGE_JOBS_OTHER_TOKEN,
     MANAGE_JOBS_OWNER_TOKEN,
     ManageJobsScenario,
@@ -146,11 +146,15 @@ def local_today() -> date:
     return to_local_date(datetime.now(UTC))
 
 
-def titles_candidates_find(session: Session) -> list[str]:
-    found = search_jobs(
-        session, candidate_id=uuid4(), search="Manage Jobs", limit=100, offset=0
+def titles_candidates_find(client: TestClient) -> list[str]:
+    """What a candidate finds through `GET /jobs`, the search screen's request."""
+    response = client.get(
+        "/api/v1/jobs",
+        params={"search": "Manage Jobs", "limit": 100},
+        headers=manage_jobs_authorization(MANAGE_JOBS_CANDIDATE_TOKEN),
     )
-    return [job.title for job in found]
+    assert response.status_code == 200
+    return [job["title"] for job in response.json()]
 
 
 def set_closing_date(session: Session, job_id: UUID, closing_date: date) -> None:
@@ -161,12 +165,10 @@ def set_closing_date(session: Session, job_id: UUID, closing_date: date) -> None
 
 
 def test_a_closed_job_leaves_the_candidate_search_until_reopened(
-    manage_jobs_client: TestClient,
-    database_session: Session,
-    manage_jobs_scenario: ManageJobsScenario,
+    manage_jobs_client: TestClient, manage_jobs_scenario: ManageJobsScenario
 ) -> None:
     owner = manage_jobs_authorization(MANAGE_JOBS_OWNER_TOKEN)
-    assert "Manage Jobs Open Role" in titles_candidates_find(database_session)
+    assert "Manage Jobs Open Role" in titles_candidates_find(manage_jobs_client)
 
     closed = manage_jobs_client.patch(
         status_path(manage_jobs_scenario.open_job_id),
@@ -174,7 +176,7 @@ def test_a_closed_job_leaves_the_candidate_search_until_reopened(
         headers=owner,
     )
     assert closed.status_code == 200
-    assert "Manage Jobs Open Role" not in titles_candidates_find(database_session)
+    assert "Manage Jobs Open Role" not in titles_candidates_find(manage_jobs_client)
 
     reopened = manage_jobs_client.patch(
         status_path(manage_jobs_scenario.open_job_id),
@@ -182,7 +184,7 @@ def test_a_closed_job_leaves_the_candidate_search_until_reopened(
         headers=owner,
     )
     assert reopened.status_code == 200
-    assert "Manage Jobs Open Role" in titles_candidates_find(database_session)
+    assert "Manage Jobs Open Role" in titles_candidates_find(manage_jobs_client)
 
 
 def test_reopening_past_the_closing_date_requires_a_new_one(
@@ -221,7 +223,7 @@ def test_reopening_past_the_closing_date_requires_a_new_one(
     assert reopened.status_code == 200
     assert reopened.json()["status"] == JobStatus.PUBLISHED.value
     assert reopened.json()["closing_date"] == new_closing_date.isoformat()
-    assert "Manage Jobs Closed Role" in titles_candidates_find(database_session)
+    assert "Manage Jobs Closed Role" in titles_candidates_find(manage_jobs_client)
 
 
 def test_a_published_job_past_its_closing_date_reopens_with_a_new_one(
@@ -244,7 +246,7 @@ def test_a_published_job_past_its_closing_date_reopens_with_a_new_one(
 
     assert response.status_code == 200
     assert response.json()["closing_date"] == new_closing_date.isoformat()
-    assert "Manage Jobs Open Role" in titles_candidates_find(database_session)
+    assert "Manage Jobs Open Role" in titles_candidates_find(manage_jobs_client)
 
 
 @pytest.mark.parametrize("status", ["open", "closed"])
