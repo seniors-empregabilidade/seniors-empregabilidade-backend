@@ -30,6 +30,7 @@ PROFILE_PATH = "/api/v1/professionals/me"
 EMAIL = "skill-router@candidate.example.invalid"
 SUBJECT = "skill-router-subject"
 SKILL_NAME = "Lideranca de equipes remotas"
+OTHER_SKILL_NAME = "Comunicacao com clientes remotos"
 AUTH = {"Authorization": "Bearer access"}
 
 
@@ -46,7 +47,9 @@ def clean_rows() -> Iterator[None]:
     yield
     with get_session_factory().begin() as session:
         session.execute(delete(AppUser).where(AppUser.email == EMAIL))
-        session.execute(delete(Skill).where(Skill.name == SKILL_NAME))
+        session.execute(
+            delete(Skill).where(Skill.name.in_([SKILL_NAME, OTHER_SKILL_NAME]))
+        )
 
 
 def add_candidate() -> UUID:
@@ -68,11 +71,11 @@ def add_candidate() -> UUID:
         return user.id
 
 
-def add_catalog_skill() -> UUID:
+def add_catalog_skill(name: str = SKILL_NAME) -> UUID:
     with get_session_factory().begin() as session:
         skill = Skill(
-            name=SKILL_NAME,
-            normalized_name=SKILL_NAME.casefold(),
+            name=name,
+            normalized_name=name.casefold(),
             type=SkillType.SOFT,
         )
         session.add(skill)
@@ -173,7 +176,106 @@ def test_removing_a_skill_that_is_not_in_the_profile_is_not_found(
     assert response.json()["code"] == "skill_not_found"
 
 
+def test_replace_skills_is_persisted(
+    client: TestClient, provider: FakeIdentityProvider
+) -> None:
+    user_id = add_candidate()
+    replaced = add_catalog_skill()
+    chosen = add_catalog_skill(OTHER_SKILL_NAME)
+    client.post(SKILLS_PATH, json={"skill_id": str(replaced)}, headers=AUTH)
+
+    response = client.put(SKILLS_PATH, json={"skill_ids": [str(chosen)]}, headers=AUTH)
+
+    assert response.status_code == 200
+    assert response.json() == [
+        {"id": str(chosen), "name": OTHER_SKILL_NAME, "type": "soft"}
+    ]
+    assert response.headers["Cache-Control"] == "no-store"
+    assert linked_skills(user_id) == [chosen]
+
+
+def test_replaced_skills_are_returned_sorted_by_name(
+    client: TestClient, provider: FakeIdentityProvider
+) -> None:
+    user_id = add_candidate()
+    leadership = add_catalog_skill()
+    communication = add_catalog_skill(OTHER_SKILL_NAME)
+
+    response = client.put(
+        SKILLS_PATH,
+        json={"skill_ids": [str(leadership), str(communication)]},
+        headers=AUTH,
+    )
+
+    assert response.status_code == 200
+    assert [skill["name"] for skill in response.json()] == [
+        OTHER_SKILL_NAME,
+        SKILL_NAME,
+    ]
+    assert set(linked_skills(user_id)) == {leadership, communication}
+
+
+def test_replacing_with_an_empty_list_clears_the_skills(
+    client: TestClient, provider: FakeIdentityProvider
+) -> None:
+    user_id = add_candidate()
+    skill_id = add_catalog_skill()
+    client.post(SKILLS_PATH, json={"skill_id": str(skill_id)}, headers=AUTH)
+
+    response = client.put(SKILLS_PATH, json={"skill_ids": []}, headers=AUTH)
+
+    assert response.status_code == 200
+    assert response.json() == []
+    assert linked_skills(user_id) == []
+
+
+def test_replacing_with_an_unknown_skill_changes_nothing(
+    client: TestClient, provider: FakeIdentityProvider
+) -> None:
+    user_id = add_candidate()
+    skill_id = add_catalog_skill()
+    client.post(SKILLS_PATH, json={"skill_id": str(skill_id)}, headers=AUTH)
+
+    response = client.put(SKILLS_PATH, json={"skill_ids": [str(uuid4())]}, headers=AUTH)
+
+    assert response.status_code == 404
+    assert response.json()["code"] == "skill_not_found"
+    assert linked_skills(user_id) == [skill_id]
+
+
+def test_a_repeated_skill_is_saved_once(
+    client: TestClient, provider: FakeIdentityProvider
+) -> None:
+    user_id = add_candidate()
+    skill_id = add_catalog_skill()
+
+    response = client.put(
+        SKILLS_PATH,
+        json={"skill_ids": [str(skill_id), str(skill_id)]},
+        headers=AUTH,
+    )
+
+    assert response.status_code == 200
+    assert [skill["id"] for skill in response.json()] == [str(skill_id)]
+    assert linked_skills(user_id) == [skill_id]
+
+
+def test_free_text_skills_are_rejected(
+    client: TestClient, provider: FakeIdentityProvider
+) -> None:
+    add_candidate()
+
+    response = client.put(
+        SKILLS_PATH,
+        json={"skills": [{"name": "Habilidade digitada", "type": "soft"}]},
+        headers=AUTH,
+    )
+
+    assert response.status_code == 422
+
+
 def test_skills_require_a_token(
     client: TestClient, provider: FakeIdentityProvider
 ) -> None:
     assert client.post(SKILLS_PATH, json={"skill_id": str(uuid4())}).status_code == 401
+    assert client.put(SKILLS_PATH, json={"skill_ids": []}).status_code == 401
