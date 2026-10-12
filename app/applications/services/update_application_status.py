@@ -15,6 +15,8 @@ from app.applications.schemas.update_application_status_request import (
 from app.applications.services.application_action_result import ApplicationActionResult
 from app.db.models import Application, Job
 from app.db.models.enums import ApplicationStatus
+from app.notifications.domain.notification_type import NotificationType
+from app.notifications.services.notify_user import notify_user
 
 # Terminal statuses: the company cannot move an application away from these.
 _TERMINAL_STATUSES = frozenset(
@@ -42,6 +44,14 @@ _ALLOWED_TRANSITIONS: dict[ApplicationStatus, frozenset[ApplicationStatus]] = {
             ApplicationStatus.NOT_SELECTED,
         }
     ),
+}
+
+# Status wording shown to the candidate in the in-app notification.
+_STATUS_LABELS: dict[ApplicationStatus, str] = {
+    ApplicationStatus.UNDER_REVIEW: "em análise",
+    ApplicationStatus.IN_SELECTION_PROCESS: "em processo seletivo",
+    ApplicationStatus.HIRED: "contratado",
+    ApplicationStatus.NOT_SELECTED: "não selecionado",
 }
 
 _STATUS_MAP: dict[str, ApplicationStatus] = {
@@ -93,7 +103,7 @@ def update_application_status(
         if row is None:
             raise ApplicationNotFoundError
 
-        application, _job = row
+        application, job = row
 
         if application.status in _TERMINAL_STATUSES:
             raise ApplicationAlreadyClosedError
@@ -112,6 +122,22 @@ def update_application_status(
             application.reason = request.reason
 
         session.flush()
+        # The rejection reason is deliberately left out: the candidate reads
+        # it from their application list, not from the notification.
+        notify_user(
+            session,
+            user_id=application.candidate_id,
+            type=NotificationType.APPLICATION_STATUS_CHANGED,
+            message=(
+                f'Sua candidatura para a vaga "{job.title}" mudou para: '
+                f"{_STATUS_LABELS[target_status]}."
+            ),
+            details={
+                "application_id": str(application.id),
+                "job_id": str(job.id),
+                "status": target_status.value,
+            },
+        )
         result = ApplicationActionResult(
             application_id=application.id,
             job_id=application.job_id,

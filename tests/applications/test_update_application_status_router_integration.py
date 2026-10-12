@@ -9,6 +9,7 @@ from uuid import UUID, uuid4
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.models import (
@@ -18,6 +19,7 @@ from app.db.models import (
     Company,
     Job,
     JobSkill,
+    Notification,
     Skill,
 )
 from app.db.models.enums import (
@@ -463,3 +465,91 @@ def test_unauthenticated_request_is_rejected(
     )
 
     assert response.status_code == 401
+
+
+# ──────────────────────────────────────────────
+# Candidate notification
+# ──────────────────────────────────────────────
+
+
+def _candidate_notifications(
+    database_session: Session, application_id: UUID
+) -> list[Notification]:
+    database_session.expire_all()
+    application = database_session.get(Application, application_id)
+    assert application is not None
+    return list(
+        database_session.scalars(
+            select(Notification).where(Notification.user_id == application.candidate_id)
+        ).all()
+    )
+
+
+def test_status_change_notifies_the_candidate(
+    update_status_client: TestClient,
+    database_session: Session,
+    update_status_scenario: UpdateStatusScenario,
+) -> None:
+    response = update_status_client.patch(
+        status_path(update_status_scenario.under_review_application_id),
+        json={"status": "in_selection_process"},
+        headers=auth(COMPANY_TOKEN),
+    )
+
+    assert response.status_code == 200
+    notifications = _candidate_notifications(
+        database_session, update_status_scenario.under_review_application_id
+    )
+    assert len(notifications) == 1
+    notification = notifications[0]
+    assert notification.type == "application_status_changed"
+    assert notification.read is False
+    assert "Update Status Role under_review" in notification.message
+    assert "em processo seletivo" in notification.message
+    assert notification.details is not None
+    assert notification.details["application_id"] == str(
+        update_status_scenario.under_review_application_id
+    )
+    assert notification.details["status"] == "in_selection_process"
+
+
+def test_rejection_notification_does_not_include_the_reason(
+    update_status_client: TestClient,
+    database_session: Session,
+    update_status_scenario: UpdateStatusScenario,
+) -> None:
+    reason = "Synthetic rejection reason."
+    response = update_status_client.patch(
+        status_path(update_status_scenario.under_review_application_id),
+        json={"status": "not_selected", "reason": reason},
+        headers=auth(COMPANY_TOKEN),
+    )
+
+    assert response.status_code == 200
+    notifications = _candidate_notifications(
+        database_session, update_status_scenario.under_review_application_id
+    )
+    assert len(notifications) == 1
+    assert "não selecionado" in notifications[0].message
+    assert reason not in notifications[0].message
+    assert reason not in str(notifications[0].details)
+
+
+def test_refused_transition_does_not_notify_the_candidate(
+    update_status_client: TestClient,
+    database_session: Session,
+    update_status_scenario: UpdateStatusScenario,
+) -> None:
+    response = update_status_client.patch(
+        status_path(update_status_scenario.applied_application_id),
+        json={"status": "hired"},
+        headers=auth(COMPANY_TOKEN),
+    )
+
+    assert response.status_code == 409
+    assert (
+        _candidate_notifications(
+            database_session, update_status_scenario.applied_application_id
+        )
+        == []
+    )

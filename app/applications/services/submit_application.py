@@ -16,6 +16,8 @@ from app.applications.exceptions import (
 from app.core.local_date import to_local_date
 from app.db.models import Application, Job, JobSkill, Resume, ResumeSkill
 from app.db.models.enums import ApplicationStatus, JobStatus
+from app.notifications.domain.notification_type import NotificationType
+from app.notifications.services.notify_user import notify_user
 
 _UNIQUE_CANDIDATE_JOB_CONSTRAINT = "uq_application_candidate_id_job_id"
 
@@ -85,6 +87,13 @@ def submit_application(
     try:
         session.add(application)
         session.flush()
+        notify_user(
+            session,
+            user_id=job.company_id,
+            type=NotificationType.APPLICATION_RECEIVED,
+            message=f'Nova candidatura para a vaga "{job.title}".',
+            details={"application_id": str(application.id), "job_id": str(job.id)},
+        )
         session.commit()
     except IntegrityError as exc:
         session.rollback()
