@@ -15,6 +15,8 @@ from app.applications.schemas.update_application_status_request import (
 from app.applications.services.application_action_result import ApplicationActionResult
 from app.db.models import Application, Job
 from app.db.models.enums import ApplicationStatus
+from app.notifications.domain.notification_type import NotificationType
+from app.notifications.services.notify_user import notify_user
 
 # Terminal statuses: the company cannot move an application away from these.
 _TERMINAL_STATUSES = frozenset(
@@ -44,11 +46,17 @@ _ALLOWED_TRANSITIONS: dict[ApplicationStatus, frozenset[ApplicationStatus]] = {
     ),
 }
 
-_STATUS_MAP: dict[str, ApplicationStatus] = {
-    "under_review": ApplicationStatus.UNDER_REVIEW,
-    "in_selection_process": ApplicationStatus.IN_SELECTION_PROCESS,
-    "hired": ApplicationStatus.HIRED,
-    "not_selected": ApplicationStatus.NOT_SELECTED,
+# Statuses a company may set, each with the wording shown to the candidate
+# in the in-app notification. One table keeps both in step: a status added
+# here cannot be accepted without a label.
+_COMPANY_STATUSES: dict[str, tuple[ApplicationStatus, str]] = {
+    "under_review": (ApplicationStatus.UNDER_REVIEW, "em análise"),
+    "in_selection_process": (
+        ApplicationStatus.IN_SELECTION_PROCESS,
+        "em processo seletivo",
+    ),
+    "hired": (ApplicationStatus.HIRED, "contratado"),
+    "not_selected": (ApplicationStatus.NOT_SELECTED, "não selecionado"),
 }
 
 
@@ -77,7 +85,7 @@ def update_application_status(
     displayed to the candidate (US-13).
     """
     reference_now = now or datetime.now(UTC)
-    target_status = _STATUS_MAP[request.status]
+    target_status, status_label = _COMPANY_STATUSES[request.status]
 
     try:
         row = session.execute(
@@ -93,7 +101,7 @@ def update_application_status(
         if row is None:
             raise ApplicationNotFoundError
 
-        application, _job = row
+        application, job = row
 
         if application.status in _TERMINAL_STATUSES:
             raise ApplicationAlreadyClosedError
@@ -112,6 +120,21 @@ def update_application_status(
             application.reason = request.reason
 
         session.flush()
+        # The rejection reason is deliberately left out: the candidate reads
+        # it from their application list, not from the notification.
+        notify_user(
+            session,
+            user_id=application.candidate_id,
+            type=NotificationType.APPLICATION_STATUS_CHANGED,
+            message=(
+                f'Sua candidatura para a vaga "{job.title}" mudou para: {status_label}.'
+            ),
+            details={
+                "application_id": str(application.id),
+                "job_id": str(job.id),
+                "status": target_status.value,
+            },
+        )
         result = ApplicationActionResult(
             application_id=application.id,
             job_id=application.job_id,

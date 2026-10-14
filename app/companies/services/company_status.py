@@ -7,6 +7,7 @@ from app.companies.schemas.company_status import CompanyStatusResponse
 from app.core.errors import ProblemException
 from app.db.models import Company, Notification
 from app.db.models.enums import CompanyStatus
+from app.notifications.domain.notification_type import NotificationType
 
 
 def get_company_status(session: Session, user_id: UUID) -> CompanyStatusResponse:
@@ -24,7 +25,7 @@ def get_company_status(session: Session, user_id: UUID) -> CompanyStatusResponse
             select(Notification.message)
             .where(
                 Notification.user_id == user_id,
-                Notification.type == "company_registration_rejected",
+                Notification.type == NotificationType.COMPANY_REGISTRATION_REJECTED,
             )
             .order_by(Notification.created_at.desc(), Notification.id.desc())
             .limit(1)

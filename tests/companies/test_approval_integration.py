@@ -164,6 +164,8 @@ def test_rejection_notifies_owner_and_cannot_be_overwritten(
         assert len(notifications) == 1
         assert notifications[0].message == "Synthetic review reason"
         assert notifications[0].read is False
+        # Free text written by the administrator stays out of `details`.
+        assert notifications[0].details == {"company_id": str(company_id)}
 
 
 @pytest.mark.parametrize(

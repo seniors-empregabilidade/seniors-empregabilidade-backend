@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.auth.dependencies import require_approved_company, require_candidate
 from app.auth.schemas.current_user import CurrentUser
+from app.core.pagination import DEFAULT_PAGE_SIZE, MAX_OFFSET, MAX_PAGE_SIZE
 from app.core.problem_details import PROBLEM_RESPONSE
 from app.db.session import get_session
 from app.jobs.schemas import (
@@ -37,10 +38,7 @@ from app.jobs.services.list_job_applicants import (
 )
 from app.skills.schemas import SkillResponse
 
-DEFAULT_PAGE_SIZE = 20
-MAX_PAGE_SIZE = 100
 MAX_SEARCH_LENGTH = 150
-MAX_OFFSET = 2**63 - 1  # PostgreSQL bigint
 
 router = APIRouter(
     prefix="/jobs",
