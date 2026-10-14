@@ -63,7 +63,7 @@ def offline_client(
     ids=["limit-zero", "limit-above-max", "empty-cursor", "long-cursor"],
 )
 def test_invalid_pagination_is_rejected_before_listing(
-    offline_client: TestClient, params: dict[str, int], field: str
+    offline_client: TestClient, params: dict[str, str | int], field: str
 ) -> None:
     response = offline_client.get("/api/v1/notifications/me", params=params)
 

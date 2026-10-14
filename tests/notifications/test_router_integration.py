@@ -150,6 +150,47 @@ def test_new_notification_between_pages_is_not_repeated(
     assert page_ids(second) == [str(scenario.owner_middle_read_id)]
 
 
+def walk_every_page(client: TestClient, limit: int) -> list[str]:
+    ids: list[str] = []
+    cursor: str | None = None
+    while True:
+        body = list_page(client, cursor, limit=limit)
+        ids.extend(page_ids(body))
+        cursor = body["next_cursor"]
+        if cursor is None:
+            return ids
+
+
+@pytest.mark.parametrize("limit", [1, 2, 3])
+def test_notifications_sharing_a_timestamp_are_neither_skipped_nor_repeated(
+    notifications_client: TestClient, scenario: NotificationsScenario, limit: int
+) -> None:
+    # Rows created in one transaction share `now()`, so only `id` orders them
+    # and page boundaries fall inside the tie.
+    with get_session_factory().begin() as session:
+        tied = [
+            Notification(
+                user_id=scenario.owner_id,
+                type="company_registration_rejected",
+                message=f"Tied {position}",
+            )
+            for position in range(4)
+        ]
+        session.add_all(tied)
+        session.flush()
+        tied_ids = [notification.id for notification in tied]
+        assert len({notification.created_at for notification in tied}) == 1
+
+    walked = walk_every_page(notifications_client, limit)
+
+    assert walked == [
+        *(str(tied_id) for tied_id in sorted(tied_ids, reverse=True)),
+        str(scenario.owner_newest_unread_id),
+        str(scenario.owner_middle_read_id),
+        str(scenario.owner_oldest_unread_id),
+    ]
+
+
 def test_owner_marks_a_notification_as_read(
     notifications_client: TestClient, scenario: NotificationsScenario
 ) -> None:

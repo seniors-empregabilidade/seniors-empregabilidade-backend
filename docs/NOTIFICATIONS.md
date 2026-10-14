@@ -88,7 +88,13 @@ To add an event (US-29 contact, matches for companies, ...):
   page's last item. With an offset, marking items as read under
   `unread_only=true` shifted the remaining ones and skipped unread
   notifications, and a notification arriving between requests repeated an item
-  on the next page. `id` breaks ties between equal timestamps.
+  on the next page. `id` breaks ties between equal timestamps, which is common:
+  every row created in one transaction shares its `now()`.
+- **A late commit can land behind the cursor.** `created_at` is the start time
+  of the producing transaction, not its commit time. A transaction that commits
+  after a client already paged past that timestamp adds a notification the
+  client will not reach by paging forward; it appears the next time the client
+  lists from the first page, and `unread_count` includes it immediately.
 - **`ix_notification_user_id_created_at_id`** `(user_id, created_at DESC,
   id DESC)` matches the listing order, so a page reads only its rows instead of
   sorting every notification of the user. `ix_notification_user_id_read` stays

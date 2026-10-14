@@ -56,3 +56,16 @@ def test_encoded_cursor_is_url_safe_without_padding() -> None:
 def test_foreign_cursor_is_rejected(token: str) -> None:
     with pytest.raises(InvalidNotificationCursor):
         NotificationCursor.decode(token)
+
+
+def test_token_with_characters_outside_the_alphabet_is_rejected() -> None:
+    # A lenient decoder would drop the extra characters and accept the token.
+    with pytest.raises(InvalidNotificationCursor):
+        NotificationCursor.decode(POSITION.encode() + "!!!!")
+
+
+def test_cursor_cannot_be_built_with_a_naive_timestamp() -> None:
+    with pytest.raises(InvalidNotificationCursor):
+        NotificationCursor(
+            created_at=datetime(2026, 10, 14, 21, 30, 15), id=POSITION.id
+        )
