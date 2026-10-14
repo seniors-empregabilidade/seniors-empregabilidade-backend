@@ -7,7 +7,7 @@ file metadata instead of a URL. No feature uploaded files before this revision,
 so existing rows are placeholders without a certification and are removed.
 
 Revision ID: 54c377e37cc1
-Revises: b8c94551d715
+Revises: 5d2f7a9c1e34
 Create Date: 2026-10-07 23:23:45.843107+00:00
 
 """
@@ -20,7 +20,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "54c377e37cc1"
-down_revision: str | Sequence[str] | None = "b8c94551d715"
+down_revision: str | Sequence[str] | None = "5d2f7a9c1e34"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
