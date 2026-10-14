@@ -46,19 +46,17 @@ _ALLOWED_TRANSITIONS: dict[ApplicationStatus, frozenset[ApplicationStatus]] = {
     ),
 }
 
-# Status wording shown to the candidate in the in-app notification.
-_STATUS_LABELS: dict[ApplicationStatus, str] = {
-    ApplicationStatus.UNDER_REVIEW: "em análise",
-    ApplicationStatus.IN_SELECTION_PROCESS: "em processo seletivo",
-    ApplicationStatus.HIRED: "contratado",
-    ApplicationStatus.NOT_SELECTED: "não selecionado",
-}
-
-_STATUS_MAP: dict[str, ApplicationStatus] = {
-    "under_review": ApplicationStatus.UNDER_REVIEW,
-    "in_selection_process": ApplicationStatus.IN_SELECTION_PROCESS,
-    "hired": ApplicationStatus.HIRED,
-    "not_selected": ApplicationStatus.NOT_SELECTED,
+# Statuses a company may set, each with the wording shown to the candidate
+# in the in-app notification. One table keeps both in step: a status added
+# here cannot be accepted without a label.
+_COMPANY_STATUSES: dict[str, tuple[ApplicationStatus, str]] = {
+    "under_review": (ApplicationStatus.UNDER_REVIEW, "em análise"),
+    "in_selection_process": (
+        ApplicationStatus.IN_SELECTION_PROCESS,
+        "em processo seletivo",
+    ),
+    "hired": (ApplicationStatus.HIRED, "contratado"),
+    "not_selected": (ApplicationStatus.NOT_SELECTED, "não selecionado"),
 }
 
 
@@ -87,7 +85,7 @@ def update_application_status(
     displayed to the candidate (US-13).
     """
     reference_now = now or datetime.now(UTC)
-    target_status = _STATUS_MAP[request.status]
+    target_status, status_label = _COMPANY_STATUSES[request.status]
 
     try:
         row = session.execute(
@@ -129,8 +127,7 @@ def update_application_status(
             user_id=application.candidate_id,
             type=NotificationType.APPLICATION_STATUS_CHANGED,
             message=(
-                f'Sua candidatura para a vaga "{job.title}" mudou para: '
-                f"{_STATUS_LABELS[target_status]}."
+                f'Sua candidatura para a vaga "{job.title}" mudou para: {status_label}.'
             ),
             details={
                 "application_id": str(application.id),

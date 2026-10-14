@@ -5,12 +5,12 @@ from sqlalchemy.orm import Session
 
 from app.db.models import Notification
 from app.notifications.exceptions import NotificationNotFoundError
-from app.notifications.services.notification_view import NotificationView
+from app.notifications.schemas.notification_response import NotificationResponse
 
 
 def mark_notification_as_read(
     session: Session, *, notification_id: UUID, user_id: UUID
-) -> NotificationView:
+) -> NotificationResponse:
     """Mark one of the caller's notifications as read.
 
     Idempotent: marking an already-read notification succeeds again. Filtering
@@ -29,9 +29,9 @@ def mark_notification_as_read(
         )
         if notification is None:
             raise NotificationNotFoundError
-        view = NotificationView.from_model(notification)
+        response = NotificationResponse.from_model(notification)
         session.commit()
     except Exception:
         session.rollback()
         raise
-    return view
+    return response

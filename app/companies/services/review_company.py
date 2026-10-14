@@ -58,7 +58,9 @@ def review_company(
                 user_id=company.id,
                 type=NotificationType.COMPANY_REGISTRATION_REJECTED,
                 message=request.reason or "",
-                details={"company_id": str(company.id), "reason": request.reason},
+                # The reason is free text written by an administrator and
+                # is already the message; `details` keeps identifiers only.
+                details={"company_id": str(company.id)},
             )
         user = session.get(AppUser, company.id)
         if user is None:

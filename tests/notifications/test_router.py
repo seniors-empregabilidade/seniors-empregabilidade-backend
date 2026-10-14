@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 from app.auth.dependencies import get_current_user
 from app.auth.schemas.current_user import CurrentUser
 from app.db.models.enums import UserType
+from app.db.session import get_session
 from app.identity.dependencies import get_identity_provider
 from tests.identity.fakes import FakeIdentityProvider
 
@@ -42,17 +43,34 @@ def test_requests_without_a_token_are_rejected(
     assert response.headers["content-type"] == "application/problem+json"
 
 
+@pytest.fixture
+def offline_client(
+    application: FastAPI, authenticated_client: TestClient
+) -> TestClient:
+    # The listing would fail on this placeholder, so a 422 proves it never ran.
+    application.dependency_overrides[get_session] = lambda: object()
+    return authenticated_client
+
+
 @pytest.mark.parametrize(
-    "params",
-    [{"limit": 0}, {"limit": 101}, {"offset": -1}],
+    ("params", "field"),
+    [
+        ({"limit": 0}, "query.limit"),
+        ({"limit": 101}, "query.limit"),
+        ({"offset": -1}, "query.offset"),
+        ({"offset": 2**63}, "query.offset"),
+    ],
+    ids=["limit-zero", "limit-above-max", "negative-offset", "offset-above-bigint"],
 )
-def test_invalid_pagination_is_a_validation_error(
-    authenticated_client: TestClient, params: dict[str, int]
+def test_invalid_pagination_is_rejected_before_listing(
+    offline_client: TestClient, params: dict[str, int], field: str
 ) -> None:
-    response = authenticated_client.get("/api/v1/notifications/me", params=params)
+    response = offline_client.get("/api/v1/notifications/me", params=params)
 
     assert response.status_code == 422
+    assert response.headers["content-type"] == "application/problem+json"
     assert response.json()["code"] == "validation_error"
+    assert list(response.json()["errors"]) == [field]
 
 
 def test_malformed_notification_id_is_a_validation_error(

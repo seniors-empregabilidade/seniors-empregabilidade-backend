@@ -18,7 +18,10 @@ every query is scoped to the caller. All responses send
 
 1. `GET /api/v1/notifications/me` returns the caller's notifications, newest
    first, plus `unread_count`. Query parameters: `unread_only` (default
-   `false`), `limit` (1–100, default 20) and `offset` (default 0).
+   `false`), `limit` (1–100, default 20) and `offset` (0 up to the PostgreSQL
+   bigint limit, default 0; larger values answer `422` instead of reaching the
+   database). The bounds live in `app/core/pagination.py`, shared with
+   `GET /api/v1/jobs`.
    `unread_count` always counts every unread notification of the caller,
    ignoring the page and the filter, so the client can render a badge from
    the same response.
@@ -46,7 +49,10 @@ it is committed.
 `details` carries `application_id` and `job_id` for both application events,
 plus the new `status` for `application_status_changed`. The rejection reason
 is not copied into the notification: the candidate reads it from their
-application list.
+application list. `company_registration_rejected` carries only `company_id`:
+the administrator's free-text reason is the message itself and is not
+duplicated in `details`. Rows created before this change may still hold a
+`reason` key, which only repeats their own message.
 
 Messages are written in Brazilian Portuguese because they are shown verbatim
 in the notification center. Clients that need their own wording can switch

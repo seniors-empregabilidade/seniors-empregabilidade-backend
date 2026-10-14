@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.auth.dependencies import get_current_user
 from app.auth.schemas.current_user import CurrentUser
+from app.core.pagination import DEFAULT_PAGE_SIZE, MAX_OFFSET, MAX_PAGE_SIZE
 from app.core.problem_details import PROBLEM_RESPONSE
 from app.db.session import get_session
 from app.notifications.schemas.notification_list_response import (
@@ -19,7 +20,6 @@ from app.notifications.services.mark_all_notifications_as_read import (
 from app.notifications.services.mark_notification_as_read import (
     mark_notification_as_read,
 )
-from app.notifications.services.notification_view import NotificationView
 
 # Every account type receives notifications, so these routes require only an
 # authenticated, active user and always scope the query to that user.
@@ -30,17 +30,6 @@ router = APIRouter(
 )
 
 
-def _to_response(view: NotificationView) -> NotificationResponse:
-    return NotificationResponse(
-        id=view.id,
-        type=view.type,
-        message=view.message,
-        details=view.details,
-        read=view.read,
-        created_at=view.created_at,
-    )
-
-
 @router.get("/me", response_model=NotificationListResponse)
 def read_my_notifications(
     response: Response,
@@ -49,20 +38,16 @@ def read_my_notifications(
     unread_only: Annotated[
         bool, Query(description="Return only unread notifications")
     ] = False,
-    limit: Annotated[int, Query(ge=1, le=100)] = 20,
-    offset: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=MAX_PAGE_SIZE)] = DEFAULT_PAGE_SIZE,
+    offset: Annotated[int, Query(ge=0, le=MAX_OFFSET)] = 0,
 ) -> NotificationListResponse:
     response.headers["Cache-Control"] = "no-store"
-    page = list_my_notifications(
+    return list_my_notifications(
         session,
         user_id=user.id,
         unread_only=unread_only,
         limit=limit,
         offset=offset,
-    )
-    return NotificationListResponse(
-        items=[_to_response(view) for view in page.items],
-        unread_count=page.unread_count,
     )
 
 
@@ -87,7 +72,6 @@ def read_my_notification(
     session: Annotated[Session, Depends(get_session)],
 ) -> NotificationResponse:
     response.headers["Cache-Control"] = "no-store"
-    view = mark_notification_as_read(
+    return mark_notification_as_read(
         session, notification_id=notification_id, user_id=user.id
     )
-    return _to_response(view)

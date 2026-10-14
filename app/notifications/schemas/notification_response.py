@@ -1,8 +1,10 @@
 from datetime import datetime
-from typing import Any
+from typing import Any, Self
 from uuid import UUID
 
 from pydantic import BaseModel, Field
+
+from app.db.models import Notification
 
 
 class NotificationResponse(BaseModel):
@@ -17,3 +19,14 @@ class NotificationResponse(BaseModel):
     )
     read: bool
     created_at: datetime
+
+    @classmethod
+    def from_model(cls, notification: Notification) -> Self:
+        return cls(
+            id=notification.id,
+            type=notification.type,
+            message=notification.message,
+            details=notification.details,
+            read=notification.read,
+            created_at=notification.created_at,
+        )
