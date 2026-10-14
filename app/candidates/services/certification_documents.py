@@ -96,7 +96,9 @@ def remove_document(
     storage: DocumentStorage,
 ) -> None:
     try:
-        certification = get_own_certification(user_id, certification_id, session)
+        certification = get_own_certification(
+            user_id, certification_id, session, lock=True
+        )
         attached = attached_document(certification.id, session)
         if attached is None:
             raise CertificationDocumentNotFoundError()

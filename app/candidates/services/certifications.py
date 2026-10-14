@@ -75,7 +75,9 @@ def remove_certification(
     storage: DocumentStorage,
 ) -> None:
     try:
-        certification = get_own_certification(user_id, certification_id, session)
+        certification = get_own_certification(
+            user_id, certification_id, session, lock=True
+        )
         document = attached_document(certification.id, session)
         object_key = document.object_key if document else None
         session.delete(certification)

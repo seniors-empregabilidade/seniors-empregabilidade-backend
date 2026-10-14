@@ -47,6 +47,9 @@ then opens it.
 - The filename is reduced to a printable base name of at most 255 characters,
   keeping the extension.
 - Both checks run before any storage call.
+- Any request body over 5 MB plus 64 KB of multipart framing is refused with
+  `413` while it is received, before parsing and authentication
+  (`RequestBodyLimitMiddleware`).
 
 | Failure | Status | `code` |
 | --- | --- | --- |
@@ -55,16 +58,18 @@ then opens it.
 | Expiration before issue | `422` | `invalid_certification_period` |
 | Not a PDF, PNG or JPEG | `422` | `unsupported_document_type` |
 | Larger than 5 MB | `422` | `document_too_large` |
+| Request body larger than the upload limit | `413` | `http_413` |
 | Storage unconfigured or failing | `503` | `document_storage_unavailable` |
 
 ## Storage
 
 `app.storage.DocumentStorage` is the port; `S3DocumentStorage` implements it.
 Objects are written under `certifications/{certification_id}/{random}` so the key
-carries no personal data. The API locks the certification row, uploads the
-object, then commits the row. When the commit fails, the new object is deleted.
-When a document is replaced or removed, the old object is deleted after the
-commit. A failed cleanup is logged as `document_cleanup_failed` and leaves an
+carries no personal data. Uploads and removals lock the certification row, so
+a removal waits for a concurrent replacement and deletes the file it stored. The
+upload stores the object, then commits the row. When the commit fails, the new
+object is deleted. When a document is replaced or removed, the old object is
+deleted after the commit. A failed cleanup is logged as `document_cleanup_failed` and leaves an
 orphaned object rather than failing a request that already succeeded.
 
 | Setting | Production | Local |
