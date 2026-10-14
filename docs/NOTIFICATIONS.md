@@ -3,7 +3,7 @@
 This module lets any authenticated user read the notifications addressed to
 them and mark them as read, and gives event producers one entry point to
 create notifications. It reuses the existing `notification` table from the
-initial schema; no migration was added.
+initial schema; migration `5d2f7a9c1e34` only adds the listing index.
 
 US-26 is marked as provisional in the backlog because of its e-mail half
 (US-26-T02). This task covers only in-app notifications, which do not depend
@@ -17,11 +17,13 @@ every query is scoped to the caller. All responses send
 `Cache-Control: no-store`.
 
 1. `GET /api/v1/notifications/me` returns the caller's notifications, newest
-   first, plus `unread_count`. Query parameters: `unread_only` (default
-   `false`), `limit` (1–100, default 20) and `offset` (0 up to the PostgreSQL
-   bigint limit, default 0; larger values answer `422` instead of reaching the
-   database). The bounds live in `app/core/pagination.py`, shared with
-   `GET /api/v1/jobs`.
+   first, plus `unread_count` and `next_cursor`. Query parameters:
+   `unread_only` (default `false`), `limit` (1–100, default 20, bounds shared
+   with `GET /api/v1/jobs` in `app/core/pagination.py`) and `cursor`.
+   Omit `cursor` for the first page and send back the previous `next_cursor`
+   for the next one; `next_cursor` is `null` on the last page. The token is
+   opaque: clients must not build or parse it. A cursor this API did not
+   produce answers `422 invalid_cursor`.
    `unread_count` always counts every unread notification of the caller,
    ignoring the page and the filter, so the client can render a badge from
    the same response.
@@ -81,6 +83,16 @@ To add an event (US-29 contact, matches for companies, ...):
   consumer.
 - **Mark as read uses a single `UPDATE ... RETURNING`** filtered by id and
   owner, so there is no read-check-write race and no row lock is needed.
+- **Cursor (keyset) pagination instead of `offset`.** A page holds the
+  notifications strictly before the `(created_at, id)` pair of the previous
+  page's last item. With an offset, marking items as read under
+  `unread_only=true` shifted the remaining ones and skipped unread
+  notifications, and a notification arriving between requests repeated an item
+  on the next page. `id` breaks ties between equal timestamps.
+- **`ix_notification_user_id_created_at_id`** `(user_id, created_at DESC,
+  id DESC)` matches the listing order, so a page reads only its rows instead of
+  sorting every notification of the user. `ix_notification_user_id_read` stays
+  for the unread count.
 
 ## Known gaps (out of scope for this task)
 

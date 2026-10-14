@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.auth.dependencies import get_current_user
 from app.auth.schemas.current_user import CurrentUser
-from app.core.pagination import DEFAULT_PAGE_SIZE, MAX_OFFSET, MAX_PAGE_SIZE
+from app.core.pagination import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE
 from app.core.problem_details import PROBLEM_RESPONSE
 from app.db.session import get_session
 from app.notifications.schemas.notification_list_response import (
@@ -20,6 +20,9 @@ from app.notifications.services.mark_all_notifications_as_read import (
 from app.notifications.services.mark_notification_as_read import (
     mark_notification_as_read,
 )
+
+# A real cursor is under 100 characters; the cap rejects junk before decoding.
+MAX_CURSOR_LENGTH = 200
 
 # Every account type receives notifications, so these routes require only an
 # authenticated, active user and always scope the query to that user.
@@ -39,7 +42,14 @@ def read_my_notifications(
         bool, Query(description="Return only unread notifications")
     ] = False,
     limit: Annotated[int, Query(ge=1, le=MAX_PAGE_SIZE)] = DEFAULT_PAGE_SIZE,
-    offset: Annotated[int, Query(ge=0, le=MAX_OFFSET)] = 0,
+    cursor: Annotated[
+        str | None,
+        Query(
+            min_length=1,
+            max_length=MAX_CURSOR_LENGTH,
+            description="`next_cursor` from the previous page; omit for the first.",
+        ),
+    ] = None,
 ) -> NotificationListResponse:
     response.headers["Cache-Control"] = "no-store"
     return list_my_notifications(
@@ -47,7 +57,7 @@ def read_my_notifications(
         user_id=user.id,
         unread_only=unread_only,
         limit=limit,
-        offset=offset,
+        cursor=cursor,
     )
 
 
