@@ -43,6 +43,22 @@ def test_migrated_schema_contains_postgresql_domain_objects() -> None:
 
 
 @pytest.mark.integration
+def test_notification_listing_index_is_migrated_newest_first() -> None:
+    indexes = {
+        index["name"]: index
+        for index in inspect(get_engine()).get_indexes("notification")
+    }
+
+    listing = indexes["ix_notification_user_id_created_at_id"]
+    assert listing["column_names"] == ["user_id", "created_at", "id"]
+    assert listing.get("column_sorting") == {
+        "created_at": ("desc",),
+        "id": ("desc",),
+    }
+    assert "ix_notification_user_id_read" in indexes
+
+
+@pytest.mark.integration
 def test_seed_is_idempotent_and_cannot_authenticate() -> None:
     factory = get_session_factory()
     with factory.begin() as session:

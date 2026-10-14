@@ -8,3 +8,9 @@ class NotificationListResponse(BaseModel):
     unread_count: int = Field(
         description="Every unread notification of the user, ignoring pagination."
     )
+    next_cursor: str | None = Field(
+        description=(
+            "Opaque token for the next page, sent back as `cursor`; "
+            "`null` on the last page."
+        )
+    )

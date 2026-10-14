@@ -57,13 +57,13 @@ def offline_client(
     [
         ({"limit": 0}, "query.limit"),
         ({"limit": 101}, "query.limit"),
-        ({"offset": -1}, "query.offset"),
-        ({"offset": 2**63}, "query.offset"),
+        ({"cursor": ""}, "query.cursor"),
+        ({"cursor": "a" * 201}, "query.cursor"),
     ],
-    ids=["limit-zero", "limit-above-max", "negative-offset", "offset-above-bigint"],
+    ids=["limit-zero", "limit-above-max", "empty-cursor", "long-cursor"],
 )
 def test_invalid_pagination_is_rejected_before_listing(
-    offline_client: TestClient, params: dict[str, int], field: str
+    offline_client: TestClient, params: dict[str, str | int], field: str
 ) -> None:
     response = offline_client.get("/api/v1/notifications/me", params=params)
 
@@ -71,6 +71,19 @@ def test_invalid_pagination_is_rejected_before_listing(
     assert response.headers["content-type"] == "application/problem+json"
     assert response.json()["code"] == "validation_error"
     assert list(response.json()["errors"]) == [field]
+
+
+def test_foreign_cursor_is_rejected_before_listing(
+    offline_client: TestClient,
+) -> None:
+    response = offline_client.get(
+        "/api/v1/notifications/me", params={"cursor": "not-a-cursor"}
+    )
+
+    assert response.status_code == 422
+    assert response.headers["content-type"] == "application/problem+json"
+    assert response.json()["code"] == "invalid_cursor"
+    assert list(response.json()["errors"]) == ["query.cursor"]
 
 
 def test_malformed_notification_id_is_a_validation_error(
