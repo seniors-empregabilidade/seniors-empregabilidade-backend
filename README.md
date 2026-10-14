@@ -40,11 +40,13 @@ uv run pre-commit install --install-hooks
 
 ## Inicialização diária
 
-Com o Docker em execução, abra um terminal na raiz do repositório e inicie o PostgreSQL:
+Com o Docker em execução, abra um terminal na raiz do repositório e inicie o PostgreSQL e o armazenamento local de arquivos:
 
 ```bash
-docker compose up -d postgres
+docker compose up -d postgres s3
 ```
+
+O serviço `s3` simula o bucket de uploads da AWS em `http://localhost:9090` e só é necessário para os comprovantes de certificação. Os arquivos ficam no contêiner e somem quando ele é recriado.
 
 Depois, inicie a API:
 
@@ -69,7 +71,7 @@ Em termos operacionais, `/health` é a verificação de vida (*liveness*) e `/re
 No terminal da API, pressione `Ctrl+C`. Depois, pare o PostgreSQL sem apagar os dados:
 
 ```bash
-docker compose stop postgres
+docker compose stop postgres s3
 ```
 
 Para remover os contêineres, a rede e **todos os dados locais do banco**, use `docker compose down --volumes`. Esse comando é destrutivo e só deve ser executado quando esses dados não forem mais necessários.
