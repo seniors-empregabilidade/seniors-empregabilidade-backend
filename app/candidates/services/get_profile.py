@@ -7,14 +7,18 @@ from sqlalchemy.orm import Session
 from app.candidates.domain.minimum_age import age_on
 from app.candidates.exceptions import ProfileNotFoundError
 from app.candidates.services.records import (
+    CertificationRecord,
     EducationRecord,
     ExperienceRecord,
     ProfileRecord,
+    certification_record,
     education_record,
     experience_record,
 )
 from app.db.models.app_user import AppUser
+from app.db.models.attached_certificate import AttachedCertificate
 from app.db.models.candidate import Candidate
+from app.db.models.certification import Certification
 from app.db.models.education import Education
 from app.db.models.experience import Experience
 from app.db.models.resume import Resume
@@ -36,6 +40,7 @@ def get_profile(user_id: UUID, *, session: Session) -> ProfileRecord:
 
     experiences: tuple[ExperienceRecord, ...] = ()
     education: tuple[EducationRecord, ...] = ()
+    certifications: tuple[CertificationRecord, ...] = ()
     skills: tuple[CatalogSkill, ...] = ()
 
     if resume is not None:
@@ -54,6 +59,20 @@ def get_profile(user_id: UUID, *, session: Session) -> ProfileRecord:
                 .where(Education.resume_id == resume.id)
                 .order_by(Education.start_date.desc().nulls_last(), Education.id)
             )
+        )
+        certifications = tuple(
+            certification_record(certification, document)
+            for certification, document in session.execute(
+                select(Certification, AttachedCertificate)
+                .outerjoin(
+                    AttachedCertificate,
+                    AttachedCertificate.certification_id == Certification.id,
+                )
+                .where(Certification.resume_id == resume.id)
+                .order_by(
+                    Certification.issued_date.desc().nulls_last(), Certification.id
+                )
+            ).tuples()
         )
         skills = tuple(
             CatalogSkill.of(row)
@@ -76,5 +95,6 @@ def get_profile(user_id: UUID, *, session: Session) -> ProfileRecord:
         summary=resume.summary if resume else None,
         experiences=experiences,
         education=education,
+        certifications=certifications,
         skills=skills,
     )
