@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.candidates.exceptions import SkillAlreadyAddedError, SkillNotFoundError
 from app.candidates.schemas.skill_link import SkillLinkRequest, SkillSelectionRequest
 from app.candidates.services.resumes import get_or_create_resume
+from app.db.models.candidate import Candidate
 from app.db.models.resume import Resume
 from app.db.models.resume_skill import ResumeSkill
 from app.db.models.skill import Skill
@@ -75,6 +76,10 @@ def replace_skills(
         if len(skills) != len(wanted):
             raise SkillNotFoundError()
 
+        # Lock the candidate so concurrent first replacements cannot both create a résumé.
+        session.scalar(
+            select(Candidate.id).where(Candidate.id == user_id).with_for_update()
+        )
         resume = get_or_create_resume(user_id, session)
         session.execute(delete(ResumeSkill).where(ResumeSkill.resume_id == resume.id))
         session.add_all(

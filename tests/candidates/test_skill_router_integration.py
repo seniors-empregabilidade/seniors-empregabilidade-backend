@@ -1,20 +1,24 @@
 import os
+import time
 from collections.abc import Iterator
+from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import date
 from uuid import UUID, uuid4
 
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from sqlalchemy import delete
+from sqlalchemy import delete, select, text
 
+from app.candidates.schemas.skill_link import SkillSelectionRequest
+from app.candidates.services.skills import replace_skills
 from app.db.models.app_user import AppUser
 from app.db.models.candidate import Candidate
 from app.db.models.enums import SkillType, UserType
 from app.db.models.resume import Resume
 from app.db.models.resume_skill import ResumeSkill
 from app.db.models.skill import Skill
-from app.db.session import get_session_factory
+from app.db.session import get_engine, get_session_factory
 from app.identity.dependencies import get_identity_provider
 from tests.identity.fakes import FakeIdentityProvider
 
@@ -239,6 +243,7 @@ def test_replacing_with_an_unknown_skill_changes_nothing(
     response = client.put(SKILLS_PATH, json={"skill_ids": [str(uuid4())]}, headers=AUTH)
 
     assert response.status_code == 404
+    assert response.headers["content-type"] == "application/problem+json"
     assert response.json()["code"] == "skill_not_found"
     assert linked_skills(user_id) == [skill_id]
 
@@ -260,6 +265,52 @@ def test_a_repeated_skill_is_saved_once(
     assert linked_skills(user_id) == [skill_id]
 
 
+def test_concurrent_first_replacements_are_serialized() -> None:
+    user_id = add_candidate()
+    first_skill = add_catalog_skill()
+    second_skill = add_catalog_skill(OTHER_SKILL_NAME)
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        with get_engine().begin() as gate:
+            gate.execute(
+                select(Candidate.id).where(Candidate.id == user_id).with_for_update()
+            )
+            first = executor.submit(_replace_in_new_session, user_id, first_skill)
+            second = executor.submit(_replace_in_new_session, user_id, second_skill)
+            _wait_for_replacements_to_block(first, second)
+
+        assert first.result(timeout=10) == first_skill
+        assert second.result(timeout=10) == second_skill
+
+    assert linked_skills(user_id) in ([first_skill], [second_skill])
+
+
+def _replace_in_new_session(user_id: UUID, skill_id: UUID) -> UUID:
+    with get_session_factory()() as session:
+        result = replace_skills(
+            user_id, SkillSelectionRequest(skill_ids=[skill_id]), session=session
+        )
+        return result[0].id
+
+
+def _wait_for_replacements_to_block(*workers: Future[UUID]) -> None:
+    blocked = text(
+        "SELECT count(*) FROM pg_stat_activity "
+        "WHERE datname = current_database() "
+        "AND cardinality(pg_blocking_pids(pid)) > 0"
+    )
+    deadline = time.monotonic() + 5
+    while time.monotonic() < deadline:
+        for worker in workers:
+            if worker.done():
+                worker.result()
+        with get_engine().connect() as connection:
+            if connection.scalar(blocked) >= len(workers):
+                return
+        time.sleep(0.01)
+    raise AssertionError("both replacements should wait for the candidate lock")
+
+
 def test_free_text_skills_are_rejected(
     client: TestClient, provider: FakeIdentityProvider
 ) -> None:
@@ -267,11 +318,43 @@ def test_free_text_skills_are_rejected(
 
     response = client.put(
         SKILLS_PATH,
-        json={"skills": [{"name": "Habilidade digitada", "type": "soft"}]},
+        json={"skill_ids": ["Ética"]},
         headers=AUTH,
     )
 
     assert response.status_code == 422
+    assert response.headers["content-type"] == "application/problem+json"
+
+
+def test_more_than_one_hundred_skills_are_rejected(
+    client: TestClient, provider: FakeIdentityProvider
+) -> None:
+    add_candidate()
+
+    response = client.put(
+        SKILLS_PATH,
+        json={"skill_ids": [str(uuid4()) for _ in range(101)]},
+        headers=AUTH,
+    )
+
+    assert response.status_code == 422
+    assert response.headers["content-type"] == "application/problem+json"
+    assert response.json()["code"] == "validation_error"
+
+
+def test_replace_skills_is_only_for_candidates(
+    client: TestClient, provider: FakeIdentityProvider
+) -> None:
+    with get_session_factory().begin() as session:
+        session.add(
+            AppUser(email=EMAIL, identity_subject=SUBJECT, user_type=UserType.COMPANY)
+        )
+
+    response = client.put(SKILLS_PATH, json={"skill_ids": []}, headers=AUTH)
+
+    assert response.status_code == 403
+    assert response.headers["content-type"] == "application/problem+json"
+    assert response.json()["code"] == "candidate_required"
 
 
 def test_skills_require_a_token(
