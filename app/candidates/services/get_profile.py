@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.candidates.domain.minimum_age import age_on
+from app.candidates.domain.resume_completeness import missing_resume_fields
 from app.candidates.exceptions import ProfileNotFoundError
 from app.candidates.services.records import (
     CertificationRecord,
@@ -97,4 +98,12 @@ def get_profile(user_id: UUID, *, session: Session) -> ProfileRecord:
         education=education,
         certifications=certifications,
         skills=skills,
+        missing_fields=missing_resume_fields(
+            city=candidate.city,
+            state=candidate.state,
+            summary=resume.summary if resume else None,
+            has_experience=bool(experiences),
+            has_education=bool(education),
+            has_skill=bool(skills),
+        ),
     )

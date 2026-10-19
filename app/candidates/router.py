@@ -351,6 +351,7 @@ def _profile_response(record: ProfileRecord) -> ProfessionalProfileResponse:
             _certification_response(item) for item in record.certifications
         ],
         skills=[_skill_response(item) for item in record.skills],
+        missing_fields=list(record.missing_fields),
     )
 
 
