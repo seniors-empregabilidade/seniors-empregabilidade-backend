@@ -10,8 +10,10 @@ from app.companies.domain.policies.cnae_policy import ensure_cnae_is_allowed
 from app.companies.schemas.company_approval import CompanyApprovalRequest
 from app.companies.schemas.company_response import CompanyResponse
 from app.core.errors import ProblemException
-from app.db.models import AppUser, Company, Notification
+from app.db.models import AppUser, Company
 from app.db.models.enums import CompanyStatus
+from app.notifications.domain.notification_type import NotificationType
+from app.notifications.services.notify_user import notify_user
 
 
 def review_company(
@@ -51,13 +53,14 @@ def review_company(
             ensure_cnae_is_allowed(company.primary_cnae, blocked_cnae_prefixes)
         company.status = CompanyStatus(request.status)
         if request.status == "rejected":
-            session.add(
-                Notification(
-                    user_id=company.id,
-                    type="company_registration_rejected",
-                    message=request.reason or "",
-                    details={"company_id": str(company.id), "reason": request.reason},
-                )
+            notify_user(
+                session,
+                user_id=company.id,
+                type=NotificationType.COMPANY_REGISTRATION_REJECTED,
+                message=request.reason or "",
+                # The reason is free text written by an administrator and
+                # is already the message; `details` keeps identifiers only.
+                details={"company_id": str(company.id)},
             )
         user = session.get(AppUser, company.id)
         if user is None:

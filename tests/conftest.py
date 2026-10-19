@@ -22,6 +22,12 @@ def isolate_identity_configuration(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture(autouse=True)
+def isolate_storage_configuration(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("UPLOADS_BUCKET", "")
+    monkeypatch.delenv("S3_ENDPOINT_URL", raising=False)
+
+
+@pytest.fixture(autouse=True)
 def reset_rate_limiter() -> Iterator[None]:
     # The limiter counts in process memory, so it would leak between tests and
     # make one test break the next. Clearing keeps the limit active for whoever

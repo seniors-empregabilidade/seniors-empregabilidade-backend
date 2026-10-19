@@ -1,7 +1,9 @@
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from uuid import UUID
 
+from app.db.models.attached_certificate import AttachedCertificate
+from app.db.models.certification import Certification
 from app.db.models.education import Education
 from app.db.models.experience import Experience
 from app.skills.services import CatalogSkill
@@ -28,6 +30,24 @@ class EducationRecord:
 
 
 @dataclass(frozen=True, slots=True)
+class CertificationDocumentRecord:
+    filename: str
+    content_type: str
+    size_bytes: int
+    uploaded_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class CertificationRecord:
+    id: UUID
+    name: str
+    issuer: str | None
+    issued_date: date | None
+    expiration_date: date | None
+    document: CertificationDocumentRecord | None
+
+
+@dataclass(frozen=True, slots=True)
 class ProfileRecord:
     id: UUID
     full_name: str
@@ -39,6 +59,7 @@ class ProfileRecord:
     summary: str | None
     experiences: tuple[ExperienceRecord, ...]
     education: tuple[EducationRecord, ...]
+    certifications: tuple[CertificationRecord, ...]
     skills: tuple[CatalogSkill, ...]
 
 
@@ -61,4 +82,24 @@ def education_record(education: Education) -> EducationRecord:
         field=education.field,
         start_date=education.start_date,
         end_date=education.end_date,
+    )
+
+
+def certification_record(
+    certification: Certification, document: AttachedCertificate | None
+) -> CertificationRecord:
+    return CertificationRecord(
+        id=certification.id,
+        name=certification.name,
+        issuer=certification.issuer,
+        issued_date=certification.issued_date,
+        expiration_date=certification.expiration_date,
+        document=CertificationDocumentRecord(
+            filename=document.filename,
+            content_type=document.content_type,
+            size_bytes=document.size_bytes,
+            uploaded_at=document.uploaded_at,
+        )
+        if document is not None
+        else None,
     )

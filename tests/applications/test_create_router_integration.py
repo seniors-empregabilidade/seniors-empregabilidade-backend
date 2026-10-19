@@ -6,7 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
-from app.db.models import Application
+from app.db.models import Application, Job, Notification
 from app.db.session import get_session_factory
 from tests.applications.conftest import (
     SUBMIT_TOKEN,
@@ -149,3 +149,51 @@ def test_concurrent_applications_to_the_same_job_only_create_one(
             )
         ).all()
         assert len(rows) == 1
+
+
+def test_applying_notifies_the_company_that_owns_the_job(
+    applications_client: TestClient, submission_scenario: SubmissionScenario
+) -> None:
+    response = applications_client.post(
+        CREATE_PATH,
+        json={"job_id": str(submission_scenario.job_open_id)},
+        headers=authorization(SUBMIT_TOKEN),
+    )
+
+    assert response.status_code == 201
+    with get_session_factory()() as session:
+        job = session.get(Job, submission_scenario.job_open_id)
+        assert job is not None
+        notifications = session.scalars(
+            select(Notification).where(Notification.user_id == job.company_id)
+        ).all()
+        assert len(notifications) == 1
+        notification = notifications[0]
+        assert notification.type == "application_received"
+        assert notification.read is False
+        assert "Submission Open Role" in notification.message
+        assert notification.details == {
+            "application_id": response.json()["id"],
+            "job_id": str(submission_scenario.job_open_id),
+        }
+
+
+def test_rejected_application_does_not_notify_the_company(
+    applications_client: TestClient, submission_scenario: SubmissionScenario
+) -> None:
+    response = applications_client.post(
+        CREATE_PATH,
+        json={"job_id": str(submission_scenario.job_already_applied_id)},
+        headers=authorization(SUBMIT_TOKEN),
+    )
+
+    assert response.status_code == 409
+    with get_session_factory()() as session:
+        job = session.get(Job, submission_scenario.job_already_applied_id)
+        assert job is not None
+        assert (
+            session.scalar(
+                select(Notification).where(Notification.user_id == job.company_id)
+            )
+            is None
+        )

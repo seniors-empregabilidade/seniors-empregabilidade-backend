@@ -21,6 +21,20 @@ def test_user_and_read_index_is_declared() -> None:
     assert [column.name for column in index.columns] == ["user_id", "read"]
 
 
+def test_listing_order_index_is_declared_newest_first() -> None:
+    index = next(
+        index
+        for index in table_for(Notification).indexes
+        if index.name == "ix_notification_user_id_created_at_id"
+    )
+
+    assert [str(expression) for expression in index.expressions] == [
+        "notification.user_id",
+        "notification.created_at DESC",
+        "notification.id DESC",
+    ]
+
+
 def test_details_use_jsonb_and_read_defaults_to_false() -> None:
     assert isinstance(Notification.__table__.c.details.type, JSONB)
     assert str(Notification.__table__.c.read.server_default.arg) == "false"

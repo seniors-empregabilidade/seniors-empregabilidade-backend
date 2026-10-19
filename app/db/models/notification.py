@@ -22,3 +22,13 @@ class Notification(UUIDPrimaryKey, CreatedAt, Base):
     message: Mapped[str] = mapped_column(Text)
     read: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
     details: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+
+
+# Serves the newest-first, cursor-paginated listing of one user's notifications.
+# Declared after the class because its sort directions reference mapped columns.
+Index(
+    "ix_notification_user_id_created_at_id",
+    Notification.user_id,
+    Notification.created_at.desc(),
+    Notification.id.desc(),
+)
