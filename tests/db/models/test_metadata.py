@@ -19,6 +19,7 @@ def test_metadata_contains_the_confirmed_domain_schema() -> None:
         "language",
         "notification",
         "resume",
+        "resume_guidance",
         "resume_skill",
         "skill",
         "training",
