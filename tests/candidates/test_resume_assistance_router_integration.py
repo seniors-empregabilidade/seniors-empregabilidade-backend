@@ -1,0 +1,233 @@
+import os
+from collections.abc import Iterator
+from datetime import UTC, date, datetime
+from uuid import UUID
+
+import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+from sqlalchemy import delete
+
+from app.db.models import (
+    Administrator,
+    AppUser,
+    Candidate,
+    Education,
+    Experience,
+    Resume,
+    ResumeGuidance,
+    ResumeSkill,
+    Skill,
+)
+from app.db.models.enums import SkillType, UserType
+from app.db.session import get_session_factory
+from app.identity.dependencies import get_identity_provider
+from app.identity.exceptions import InvalidAccessTokenError
+from tests.identity.fakes import FakeIdentityProvider
+
+pytestmark = [
+    pytest.mark.integration,
+    pytest.mark.skipif(
+        os.getenv("RUN_DATABASE_INTEGRATION_TESTS") != "1", reason="requires PostgreSQL"
+    ),
+]
+
+LIST_PATH = "/api/v1/professionals"
+SUBJECTS = [
+    f"us08-{role}" for role in ("admin", "empty", "complete", "contacted", "company")
+]
+SKILL_NAME = "US08 synthetic skill"
+
+
+class AssistanceIdentityProvider(FakeIdentityProvider):
+    def verify_access_token(self, token: str) -> str:
+        if token not in {"admin", "empty", "complete", "contacted", "company"}:
+            raise InvalidAccessTokenError
+        return f"us08-{token}"
+
+
+def auth(role: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {role}"}
+
+
+@pytest.fixture
+def actors(application: FastAPI) -> Iterator[dict[str, UUID]]:
+    application.dependency_overrides[get_identity_provider] = AssistanceIdentityProvider
+    factory = get_session_factory()
+    with factory.begin() as session:
+        users = {
+            role: AppUser(
+                email=f"us08-{role}@example.invalid",
+                identity_subject=f"us08-{role}",
+                user_type=UserType.ADMINISTRATOR
+                if role == "admin"
+                else UserType.COMPANY
+                if role == "company"
+                else UserType.CANDIDATE,
+            )
+            for role in ("admin", "empty", "complete", "contacted", "company")
+        }
+        session.add_all(users.values())
+        session.flush()
+        session.add(Administrator(id=users["admin"].id, full_name="Synthetic Admin"))
+        for role, name in (
+            ("empty", "A Empty Resume"),
+            ("complete", "B Complete Resume"),
+            ("contacted", "C Contacted Resume"),
+        ):
+            session.add(
+                Candidate(
+                    id=users[role].id,
+                    full_name=name,
+                    cpf=f"{users[role].id.int % 10**11:011d}",
+                    birth_date=date(1968, 3, 15),
+                    phone="51999990000",
+                    city="Porto Alegre" if role == "complete" else None,
+                    state="RS" if role == "complete" else None,
+                )
+            )
+        session.flush()
+        resume = Resume(
+            candidate_id=users["complete"].id,
+            summary="Experienced professional",
+        )
+        session.add(resume)
+        session.flush()
+        session.add(
+            Experience(
+                resume_id=resume.id,
+                company_name="Synthetic Company",
+                role="Analyst",
+                start_date=date(2010, 1, 1),
+            )
+        )
+        session.add(Education(resume_id=resume.id, institution="Synthetic School"))
+        skill = Skill(
+            name=SKILL_NAME,
+            normalized_name=SKILL_NAME.casefold(),
+            type=SkillType.SOFT,
+        )
+        session.add(skill)
+        session.flush()
+        session.add(ResumeSkill(resume_id=resume.id, skill_id=skill.id))
+        session.add_all(
+            [
+                ResumeGuidance(
+                    candidate_id=users["contacted"].id,
+                    administrator_id=users["admin"].id,
+                    note=note,
+                    created_at=datetime(2026, 10, day, tzinfo=UTC),
+                )
+                for day, note in ((1, "First contact"), (2, "Latest guidance"))
+            ]
+        )
+        ids = {role: user.id for role, user in users.items()}
+    yield ids
+    with factory.begin() as session:
+        session.execute(
+            delete(ResumeGuidance).where(
+                ResumeGuidance.candidate_id == ids["contacted"]
+            )
+        )
+        session.execute(delete(AppUser).where(AppUser.identity_subject.in_(SUBJECTS)))
+        session.execute(delete(Skill).where(Skill.name == SKILL_NAME))
+
+
+def test_admin_list_matches_the_frontend_contract(
+    client: TestClient, actors: dict[str, UUID]
+) -> None:
+    response = client.get(LIST_PATH, headers=auth("admin"))
+
+    assert response.status_code == 200
+    assert response.headers["Cache-Control"] == "no-store"
+    items = response.json()
+    assert [item["full_name"] for item in items] == [
+        "A Empty Resume",
+        "B Complete Resume",
+        "C Contacted Resume",
+    ]
+    assert set(items[0]) == {
+        "id",
+        "full_name",
+        "email",
+        "phone",
+        "city",
+        "state",
+        "missing_fields",
+        "last_guidance",
+    }
+    assert items[0]["missing_fields"] == [
+        "city",
+        "state",
+        "summary",
+        "experiences",
+        "education",
+        "skills",
+    ]
+    assert items[1]["missing_fields"] == []
+    assert items[2]["last_guidance"]["note"] == "Latest guidance"
+    assert items[2]["last_guidance"]["administrator_name"] == "Synthetic Admin"
+    assert items[0]["last_guidance"] is None
+
+
+@pytest.mark.parametrize(
+    ("query", "expected_names"),
+    [
+        ("completeness=complete", ["B Complete Resume"]),
+        ("completeness=incomplete", ["A Empty Resume", "C Contacted Resume"]),
+        ("contact_status=contacted", ["C Contacted Resume"]),
+        ("contact_status=not_contacted", ["A Empty Resume", "B Complete Resume"]),
+        (
+            "completeness=incomplete&contact_status=contacted",
+            ["C Contacted Resume"],
+        ),
+        ("completeness=incomplete&limit=1&offset=1", ["C Contacted Resume"]),
+    ],
+)
+def test_admin_filters_and_paginates_after_filtering(
+    client: TestClient, actors: dict[str, UUID], query: str, expected_names: list[str]
+) -> None:
+    response = client.get(f"{LIST_PATH}?{query}", headers=auth("admin"))
+
+    assert response.status_code == 200
+    assert [item["full_name"] for item in response.json()] == expected_names
+
+
+def test_candidate_and_admin_see_the_same_pending_fields(
+    client: TestClient, actors: dict[str, UUID]
+) -> None:
+    candidate = client.get(f"{LIST_PATH}/me", headers=auth("contacted"))
+    admin = client.get(LIST_PATH, headers=auth("admin"))
+
+    assert candidate.status_code == 200
+    assert candidate.json()["missing_fields"] == admin.json()[2]["missing_fields"]
+
+
+@pytest.mark.parametrize("role", ["empty", "company"])
+def test_list_rejects_non_administrators(
+    client: TestClient, actors: dict[str, UUID], role: str
+) -> None:
+    response = client.get(LIST_PATH, headers=auth(role))
+
+    assert response.status_code == 403
+    assert response.headers["content-type"] == "application/problem+json"
+    assert response.json()["code"] == "administrator_required"
+
+
+def test_list_requires_authentication(
+    client: TestClient, actors: dict[str, UUID]
+) -> None:
+    response = client.get(LIST_PATH)
+
+    assert response.status_code == 401
+    assert response.headers["content-type"] == "application/problem+json"
+
+
+@pytest.mark.parametrize("query", ["completeness=unknown", "limit=0", "offset=-1"])
+def test_list_rejects_invalid_filters(
+    client: TestClient, actors: dict[str, UUID], query: str
+) -> None:
+    response = client.get(f"{LIST_PATH}?{query}", headers=auth("admin"))
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "validation_error"
