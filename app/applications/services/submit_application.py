@@ -14,8 +14,8 @@ from app.applications.exceptions import (
     JobNotOpenError,
 )
 from app.core.local_date import to_local_date
-from app.db.models import Application, Job, JobSkill, Resume, ResumeSkill
-from app.db.models.enums import ApplicationStatus, JobStatus
+from app.db.models import Application, AppUser, Job, JobSkill, Resume, ResumeSkill
+from app.db.models.enums import AccountStatus, ApplicationStatus, JobStatus
 from app.notifications.domain.notification_type import NotificationType
 from app.notifications.services.notify_user import notify_user
 
@@ -41,13 +41,13 @@ def submit_application(
 ) -> SubmittedApplication:
     """Register the authenticated candidate's application to an open job.
 
-    An open job is published and still within its closing date, the same
-    criterion `find_similar_jobs` uses (evaluated as a calendar date in
-    `LOCAL_TIMEZONE`). Compatibility is computed once, here, from the job's
-    required skills (`job_skill`) and the candidate's resume skills
-    (`resume_skill`); it is never recalculated afterward, even if the job's
-    requirements or the candidate's resume change later (see
-    docs/APPLICATIONS.md).
+    An open job is published, still within its closing date, and owned by a
+    company whose account is not `blocked`. The date criterion is the same one
+    `find_similar_jobs` uses (evaluated as a calendar date in `LOCAL_TIMEZONE`).
+    Compatibility is computed once, here, from the job's required skills
+    (`job_skill`) and the candidate's resume skills (`resume_skill`); it is
+    never recalculated afterward, even if the job's requirements or the
+    candidate's resume change later (see docs/APPLICATIONS.md).
 
     The `(candidate_id, job_id)` unique constraint (already part of the
     initial schema) is what actually prevents a duplicate application under
@@ -61,7 +61,16 @@ def submit_application(
     job = session.get(Job, job_id)
     if job is None:
         raise JobNotFoundError
-    if job.status != JobStatus.PUBLISHED or job.closing_date < today:
+    company_account_status = session.scalar(
+        select(AppUser.account_status)
+        .where(AppUser.id == job.company_id)
+        .with_for_update()
+    )
+    if (
+        job.status != JobStatus.PUBLISHED
+        or job.closing_date < today
+        or company_account_status == AccountStatus.BLOCKED
+    ):
         raise JobNotOpenError
 
     required_skill_ids = session.scalars(

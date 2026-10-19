@@ -83,6 +83,26 @@ def test_applying_to_a_draft_job_is_rejected(
     assert response.json()["code"] == "job_not_open"
 
 
+def test_applying_to_a_blocked_company_job_is_rejected(
+    applications_client: TestClient, submission_scenario: SubmissionScenario
+) -> None:
+    response = applications_client.post(
+        CREATE_PATH,
+        json={"job_id": str(submission_scenario.job_blocked_company_id)},
+        headers=authorization(SUBMIT_TOKEN),
+    )
+
+    assert response.status_code == 409
+    assert response.json()["code"] == "job_not_open"
+    with get_session_factory()() as session:
+        rows = session.scalars(
+            select(Application).where(
+                Application.job_id == submission_scenario.job_blocked_company_id
+            )
+        ).all()
+        assert rows == []
+
+
 def test_applying_to_an_expired_job_is_rejected(
     applications_client: TestClient, submission_scenario: SubmissionScenario
 ) -> None:
