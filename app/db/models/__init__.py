@@ -7,12 +7,14 @@ from app.db.models.candidate import Candidate
 from app.db.models.certification import Certification
 from app.db.models.company import Company
 from app.db.models.education import Education
+from app.db.models.email_delivery import EmailDelivery
 from app.db.models.enums import (
     AccountStatus,
     ApplicationStatus,
     ApplicationType,
     AvailabilityStatus,
     CompanyStatus,
+    EmailDeliveryStatus,
     EmploymentStatus,
     JobOutcome,
     JobStatus,
@@ -47,6 +49,8 @@ __all__ = [
     "Company",
     "CompanyStatus",
     "Education",
+    "EmailDelivery",
+    "EmailDeliveryStatus",
     "EmploymentStatus",
     "Event",
     "Experience",

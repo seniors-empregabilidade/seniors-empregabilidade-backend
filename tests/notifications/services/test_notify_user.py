@@ -2,7 +2,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import AppUser, Notification
+from app.db.models import AppUser, EmailDelivery, EmailDeliveryStatus, Notification
 from app.db.models.enums import UserType
 from app.notifications.domain.notification_type import NotificationType
 from app.notifications.services.notify_user import notify_user
@@ -66,3 +66,73 @@ def test_notification_is_discarded_when_the_caller_rolls_back(
         )
         is None
     )
+
+
+def deliveries_for(session: Session, user_id: object) -> list[EmailDelivery]:
+    return list(
+        session.scalars(
+            select(EmailDelivery)
+            .join(Notification, Notification.id == EmailDelivery.notification_id)
+            .where(Notification.user_id == user_id)
+        ).all()
+    )
+
+
+@pytest.mark.parametrize(
+    "notification_type",
+    [
+        NotificationType.APPLICATION_RECEIVED,
+        NotificationType.APPLICATION_STATUS_CHANGED,
+    ],
+)
+def test_email_events_queue_one_pending_delivery(
+    database_session: Session, notification_type: NotificationType
+) -> None:
+    user = make_user(database_session)
+
+    notify_user(
+        database_session,
+        user_id=user.id,
+        type=notification_type,
+        message="Synthetic message",
+    )
+    database_session.flush()
+
+    deliveries = deliveries_for(database_session, user.id)
+    assert len(deliveries) == 1
+    delivery = deliveries[0]
+    assert delivery.status == EmailDeliveryStatus.PENDING
+    assert delivery.attempts == 0
+    assert delivery.sent_at is None
+    assert delivery.last_error is None
+
+
+def test_in_app_only_event_queues_no_email(database_session: Session) -> None:
+    user = make_user(database_session)
+
+    notify_user(
+        database_session,
+        user_id=user.id,
+        type=NotificationType.COMPANY_REGISTRATION_REJECTED,
+        message="Synthetic message",
+    )
+    database_session.flush()
+
+    assert deliveries_for(database_session, user.id) == []
+
+
+def test_queued_email_is_discarded_with_its_notification(
+    database_session: Session,
+) -> None:
+    user = make_user(database_session)
+    database_session.commit()
+
+    notify_user(
+        database_session,
+        user_id=user.id,
+        type=NotificationType.APPLICATION_RECEIVED,
+        message="Synthetic message",
+    )
+    database_session.rollback()
+
+    assert deliveries_for(database_session, user.id) == []

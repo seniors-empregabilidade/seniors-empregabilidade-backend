@@ -19,6 +19,10 @@ def isolate_identity_configuration(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("COGNITO_USER_POOL_ID", "")
     monkeypatch.setenv("COGNITO_CLIENT_ID", "")
     monkeypatch.setenv("COGNITO_CLIENT_SECRET", "")
+    # Likewise for e-mail: tests never start the dispatcher or reach SES.
+    monkeypatch.setenv("EMAIL_BACKEND", "log")
+    monkeypatch.setenv("EMAIL_SENDER_ADDRESS", "")
+    monkeypatch.setenv("EMAIL_DISPATCH_ENABLED", "false")
 
 
 @pytest.fixture(autouse=True)
