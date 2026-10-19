@@ -127,3 +127,60 @@ class SkillAlreadyAddedError(ProblemException):
             detail="The skill is already in the profile.",
             errors={"skill_id": ["The skill is already in the profile."]},
         )
+
+
+class CertificationNotFoundError(ProblemException):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=404,
+            title="Not Found",
+            code="certification_not_found",
+            detail="The certification was not found.",
+        )
+
+
+class InvalidCertificationPeriodError(ProblemException):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=422,
+            title="Validation Error",
+            code="invalid_certification_period",
+            detail="The expiration date cannot be before the issue date.",
+            errors={
+                "expiration_date": [
+                    "The expiration date cannot be before the issue date."
+                ]
+            },
+        )
+
+
+class CertificationDocumentNotFoundError(ProblemException):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=404,
+            title="Not Found",
+            code="certification_document_not_found",
+            detail="The certification has no document.",
+        )
+
+
+class UnsupportedDocumentTypeError(ProblemException):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=422,
+            title="Validation Error",
+            code="unsupported_document_type",
+            detail="The document must be a PDF, PNG, or JPEG file.",
+            errors={"file": ["The document must be a PDF, PNG, or JPEG file."]},
+        )
+
+
+class DocumentTooLargeError(ProblemException):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=422,
+            title="Validation Error",
+            code="document_too_large",
+            detail="The document must be at most 5 MB.",
+            errors={"file": ["The document must be at most 5 MB."]},
+        )

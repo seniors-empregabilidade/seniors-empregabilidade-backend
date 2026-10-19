@@ -1,3 +1,8 @@
+from app.candidates.schemas.certification import (
+    CertificationCreateRequest,
+    CertificationDocumentLinkResponse,
+    CertificationUpdateRequest,
+)
 from app.candidates.schemas.education import (
     EducationCreateRequest,
     EducationUpdateRequest,
@@ -7,6 +12,8 @@ from app.candidates.schemas.experience import (
     ExperienceUpdateRequest,
 )
 from app.candidates.schemas.profile import (
+    CertificationDocumentResponse,
+    CertificationResponse,
     EducationResponse,
     ExperienceResponse,
     ProfessionalProfileResponse,
@@ -19,6 +26,11 @@ from app.candidates.schemas.registration import (
 from app.candidates.schemas.skill_link import SkillLinkRequest
 
 __all__ = [
+    "CertificationCreateRequest",
+    "CertificationDocumentLinkResponse",
+    "CertificationDocumentResponse",
+    "CertificationResponse",
+    "CertificationUpdateRequest",
     "EducationCreateRequest",
     "EducationResponse",
     "EducationUpdateRequest",

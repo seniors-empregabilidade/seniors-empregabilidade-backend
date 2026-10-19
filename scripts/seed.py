@@ -171,8 +171,11 @@ def seed_database(session: Session) -> None:
         session,
         AttachedCertificate,
         id=seed_id("attached-certificate-candidate"),
-        resume_id=resume_id,
-        file_url="https://files.example.invalid/certificate.pdf",
+        certification_id=seed_id("certification-candidate"),
+        object_key="certifications/seed/example-certificate.pdf",
+        filename="example-certificate.pdf",
+        content_type="application/pdf",
+        size_bytes=1024,
         uploaded_at=now,
     )
     add_if_missing(

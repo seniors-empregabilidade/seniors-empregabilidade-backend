@@ -54,6 +54,13 @@ class Settings(BaseSettings):
     cognito_client_id: str = ""
     cognito_client_secret: SecretStr | None = None
 
+    uploads_bucket: str = ""
+    uploads_region: str = "us-east-2"
+    # Only for a local S3-compatible server; production uses the instance role.
+    s3_endpoint_url: AnyHttpUrl | None = None
+    s3_access_key_id: str | None = None
+    s3_secret_access_key: SecretStr | None = None
+
     # On in production, where CloudFront is in front and the socket address is
     # always the edge. Off locally, where the socket is the client.
     trust_proxy_headers: bool = False
