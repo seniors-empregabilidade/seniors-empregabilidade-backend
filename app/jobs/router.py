@@ -155,10 +155,11 @@ def list_applicants(
     user: Annotated[CurrentUser, Depends(require_approved_company)],
     session: Annotated[Session, Depends(get_session)],
 ) -> JobApplicantsSummaryResponse:
-    """List candidates who applied to a company job, with skill-match data.
+    """List candidates who applied to a company job, ranked by compatibility.
 
     Returns aggregate header (total and full-match count) plus a per-applicant
-    list ordered by match (descending). Only the company that owns the job can
+    list ordered by compatibility percentage (descending); applicants at 50% or
+    more are highlighted and come first. Only the company that owns the job can
     call this endpoint; a job from another company is returned as 404.
     """
     response.headers["Cache-Control"] = "no-store"
@@ -182,6 +183,8 @@ def _job_applicant_response(applicant: JobApplicant) -> JobApplicantResponse:
         application_id=applicant.application_id,
         status=applicant.status,
         match_score=applicant.match_score,
+        compatibility_percentage=applicant.compatibility_percentage,
+        is_highlighted=applicant.is_highlighted,
         matched_skill_count=applicant.matched_skill_count,
         required_skill_count=applicant.required_skill_count,
         profile=ApplicantProfileResponse(
