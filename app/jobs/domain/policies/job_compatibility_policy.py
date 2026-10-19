@@ -1,3 +1,19 @@
+"""Compatibility between a job and candidates.
+
+Rules:
+
+1. A candidate matches a required skill when both point at the same catalog skill id.
+   Repeated ids on either side count once.
+2. percentage = matched required skills / required skills * 100, rounded half up to
+   two decimal places. Skills the candidate has beyond the job's do not count.
+3. A job must require at least one skill (US-17 already enforces 1 to 100), so an
+   empty requirement raises ``JobWithoutRequiredSkillsError`` instead of a score.
+4. A candidate is highlighted at 50% or more, compared on the exact ratio.
+   Candidates below 50% stay in the ranking.
+5. Ranking: percentage descending, then ``candidate_id`` ascending, so the same input
+   always produces the same order.
+"""
+
 from collections.abc import Iterable, Mapping
 from uuid import UUID
 
