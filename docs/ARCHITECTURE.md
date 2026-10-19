@@ -53,4 +53,5 @@ The application emits one key-value completion event per non-health HTTP request
 Identity and the candidate/administrator/approved-company guards are implemented as described
 in [Identity integration](IDENTITY.md). Routes must explicitly opt into protection.
 Product registration, company approval/rejection, browser session handling, refresh/logout,
-audit retention, file storage, and background jobs remain separate work.
+audit retention and background jobs remain separate work. File storage exists only for
+certification documents; see [Certifications](CERTIFICATIONS.md).

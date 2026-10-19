@@ -140,6 +140,9 @@ wheels = [
 cognito-idp = [
     { name = "mypy-boto3-cognito-idp" },
 ]
+s3 = [
+    { name = "mypy-boto3-s3" },
+]
 
 [[package]]
 name = "botocore"
@@ -659,6 +662,15 @@ wheels = [
 ]
 
 [[package]]
+name = "mypy-boto3-s3"
+version = "1.43.106"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/46/db/e3922d6c62365c1098da97d9a775e78c66827df5cba11619a7d2a11cdae4/mypy_boto3_s3-1.43.106.tar.gz", hash = "sha256:731195f15830699a36e29d3c8abb2918bccd3587eb2edcb233f8046967893279", size = 79447, upload-time = "2026-09-30T22:44:48.472Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b8/4a/52419b5496215ab52c6c257134c1ac0da25c1ca5d802f133424d02a43686/mypy_boto3_s3-1.43.106-py3-none-any.whl", hash = "sha256:e233d04dbcf3925522dff4346e75c37344ec3d1cbb82337e5eed2af263847668", size = 86791, upload-time = "2026-09-30T22:44:46.139Z" },
+]
+
+[[package]]
 name = "mypy-extensions"
 version = "1.1.0"
 source = { registry = "https://pypi.org/simple" }
@@ -929,6 +941,15 @@ wheels = [
 ]
 
 [[package]]
+name = "python-multipart"
+version = "0.0.32"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/5b/42/55c32bb9b12693c092ad250a0e82edb5b31ddeda6eb772de5f308b3804ad/python_multipart-0.0.32.tar.gz", hash = "sha256:be54b7f3fa167bb83e4fcd936b887b708f4e57fe75911c02aebf53efaf8d938e", size = 46881, upload-time = "2026-06-04T16:18:58.647Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e1/04/e8135ebd1ad02c56ec633277529b2602ff99ff634be76cdba5744cf554fd/python_multipart-0.0.32-py3-none-any.whl", hash = "sha256:ff6d3f776f16878c894e52e107296ffc890e913c611b1a4ec6c44e2821fe2e23", size = 30042, upload-time = "2026-06-04T16:18:57.319Z" },
+]
+
+[[package]]
 name = "pyyaml"
 version = "6.0.3"
 source = { registry = "https://pypi.org/simple" }
@@ -1004,6 +1025,7 @@ dependencies = [
     { name = "psycopg", extra = ["binary"] },
     { name = "pydantic-settings" },
     { name = "pyjwt", extra = ["crypto"] },
+    { name = "python-multipart" },
     { name = "slowapi" },
     { name = "sqlalchemy" },
     { name = "uvicorn", extra = ["standard"] },
@@ -1011,7 +1033,7 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "boto3-stubs", extra = ["cognito-idp"] },
+    { name = "boto3-stubs", extra = ["cognito-idp", "s3"] },
     { name = "conventional-pre-commit" },
     { name = "mypy" },
     { name = "pre-commit" },
@@ -1030,6 +1052,7 @@ requires-dist = [
     { name = "psycopg", extras = ["binary"], specifier = ">=3,<4" },
     { name = "pydantic-settings", specifier = ">=2.15.0" },
     { name = "pyjwt", extras = ["crypto"], specifier = ">=2.10,<3" },
+    { name = "python-multipart", specifier = ">=0.0.20,<1" },
     { name = "slowapi", specifier = ">=0.1.10,<0.2" },
     { name = "sqlalchemy", specifier = ">=2,<3" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.52.3" },
@@ -1037,7 +1060,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "boto3-stubs", extras = ["cognito-idp"], specifier = ">=1.40,<2" },
+    { name = "boto3-stubs", extras = ["cognito-idp", "s3"], specifier = ">=1.40,<2" },
     { name = "conventional-pre-commit", specifier = ">=4.4.0" },
     { name = "mypy", specifier = ">=2.3.0" },
     { name = "pre-commit", specifier = ">=4.6.2" },
