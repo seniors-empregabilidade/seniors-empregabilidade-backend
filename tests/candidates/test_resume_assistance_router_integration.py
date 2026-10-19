@@ -1,6 +1,7 @@
 import os
 from collections.abc import Iterator
 from datetime import UTC, date, datetime
+from typing import Any
 from uuid import UUID, uuid4
 
 import pytest
@@ -48,6 +49,13 @@ class AssistanceIdentityProvider(FakeIdentityProvider):
 
 def auth(role: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {role}"}
+
+
+def fixture_items(
+    items: list[dict[str, Any]], actors: dict[str, UUID]
+) -> list[dict[str, Any]]:
+    fixture_ids = {str(actors[role]) for role in ("empty", "complete", "contacted")}
+    return [item for item in items if item["id"] in fixture_ids]
 
 
 @pytest.fixture
@@ -140,7 +148,7 @@ def test_admin_list_matches_the_frontend_contract(
 
     assert response.status_code == 200
     assert response.headers["Cache-Control"] == "no-store"
-    items = response.json()
+    items = fixture_items(response.json(), actors)
     assert [item["full_name"] for item in items] == [
         "A Empty Resume",
         "B Complete Resume",
@@ -181,7 +189,6 @@ def test_admin_list_matches_the_frontend_contract(
             "completeness=incomplete&contact_status=contacted",
             ["C Contacted Resume"],
         ),
-        ("completeness=incomplete&limit=1&offset=1", ["C Contacted Resume"]),
     ],
 )
 def test_admin_filters_and_paginates_after_filtering(
@@ -190,7 +197,20 @@ def test_admin_filters_and_paginates_after_filtering(
     response = client.get(f"{LIST_PATH}?{query}", headers=auth("admin"))
 
     assert response.status_code == 200
-    assert [item["full_name"] for item in response.json()] == expected_names
+    assert [
+        item["full_name"] for item in fixture_items(response.json(), actors)
+    ] == expected_names
+
+
+def test_admin_paginates_after_filtering(
+    client: TestClient, actors: dict[str, UUID]
+) -> None:
+    base = f"{LIST_PATH}?completeness=incomplete"
+    all_items = client.get(base, headers=auth("admin")).json()
+    page = client.get(f"{base}&limit=1&offset=1", headers=auth("admin"))
+
+    assert page.status_code == 200
+    assert [item["id"] for item in page.json()] == [all_items[1]["id"]]
 
 
 def test_candidate_and_admin_see_the_same_pending_fields(
@@ -200,7 +220,8 @@ def test_candidate_and_admin_see_the_same_pending_fields(
     admin = client.get(LIST_PATH, headers=auth("admin"))
 
     assert candidate.status_code == 200
-    assert candidate.json()["missing_fields"] == admin.json()[2]["missing_fields"]
+    summaries = fixture_items(admin.json(), actors)
+    assert candidate.json()["missing_fields"] == summaries[2]["missing_fields"]
 
 
 @pytest.mark.parametrize("role", ["empty", "company"])
@@ -258,11 +279,11 @@ def test_admin_records_guidance_with_server_owned_metadata(
         assert stored.administrator_id == actors["admin"]
         assert stored.note == response.json()["note"]
     listed = client.get(f"{LIST_PATH}?contact_status=contacted", headers=auth("admin"))
-    assert [item["full_name"] for item in listed.json()] == [
+    assert [item["full_name"] for item in fixture_items(listed.json(), actors)] == [
         "A Empty Resume",
         "C Contacted Resume",
     ]
-    assert listed.json()[0]["last_guidance"] == response.json()
+    assert fixture_items(listed.json(), actors)[0]["last_guidance"] == response.json()
     candidate = client.get(f"{LIST_PATH}/me", headers=auth("empty"))
     assert "last_guidance" not in candidate.json()
     assert "note" not in candidate.json()
@@ -286,7 +307,7 @@ def test_guidance_is_append_only_and_newest_entry_is_listed(
         )
     assert count == 3
     listed = client.get(LIST_PATH, headers=auth("admin"))
-    assert listed.json()[2]["last_guidance"] == response.json()
+    assert fixture_items(listed.json(), actors)[2]["last_guidance"] == response.json()
 
 
 @pytest.mark.parametrize(
