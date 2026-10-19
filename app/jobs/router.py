@@ -155,12 +155,14 @@ def list_applicants(
     user: Annotated[CurrentUser, Depends(require_approved_company)],
     session: Annotated[Session, Depends(get_session)],
 ) -> JobApplicantsSummaryResponse:
-    """List candidates who applied to a company job, ranked by compatibility.
+    """List a company job's applicants and automatic matches, ranked by compatibility.
 
-    Returns aggregate header (total and full-match count) plus a per-applicant
-    list ordered by compatibility percentage (descending); applicants at 50% or
-    more are highlighted and come first. Only the company that owns the job can
-    call this endpoint; a job from another company is returned as 404.
+    Returns an aggregate header (applicant, full-match and automatic-match counts)
+    plus one list ordered by compatibility percentage (descending). Each row has
+    an ``origin``: ``application`` for a professional who applied, or
+    ``automatic_match`` for a compatible profile (50% or more) that has not.
+    Only the company that owns the job can call this endpoint; a job from another
+    company is returned as 404.
     """
     response.headers["Cache-Control"] = "no-store"
     summary = list_job_applicants(session, job_id=job_id, company_id=user.id)
@@ -174,12 +176,14 @@ def _job_applicants_summary_response(
         job_id=summary.job_id,
         total_applicant_count=summary.total_applicant_count,
         full_match_count=summary.full_match_count,
+        automatic_match_count=summary.automatic_match_count,
         applicants=[_job_applicant_response(a) for a in summary.applicants],
     )
 
 
 def _job_applicant_response(applicant: JobApplicant) -> JobApplicantResponse:
     return JobApplicantResponse(
+        origin=applicant.origin,
         application_id=applicant.application_id,
         status=applicant.status,
         match_score=applicant.match_score,

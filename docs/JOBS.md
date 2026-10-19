@@ -20,7 +20,7 @@ All paths start with `/api/v1`.
 | `GET /jobs/me` | `200`: every job of the calling company, newest first, with `application_count` |
 | `PATCH /jobs/{job_id}` | `200`: the job with its new title, description and skills |
 | `PATCH /jobs/{job_id}/status` | `200`: the job closed or reopened |
-| `GET /jobs/{job_id}/applications` | `200`: the job's applicants ranked by compatibility (US-19) |
+| `GET /jobs/{job_id}/applications` | `200`: the job's applicants and automatic matches ranked by compatibility (US-19, US-20) |
 
 `POST /jobs` receives:
 
@@ -120,6 +120,35 @@ comparing the job's skills (`job_skill`) with the applicant's résumé skills
 The percentage is computed on every request from the current job and résumé
 skills, unlike `matched_requirements`/`total_requirements`, which the application
 stores at submission time.
+
+## Origin: applications and automatic matches (US-20)
+
+The same list also shows professionals who did not apply but are compatible
+with the job, and every row carries an `origin`:
+
+- `application`: the professional applied, whatever the application status
+  (a withdrawn applicant is still an application).
+- `automatic_match`: the professional has not applied and the compatibility
+  engine highlights them (50% or more, `is_automatic_match` in
+  `app.jobs.domain.policies.automatic_match_policy`). Only candidates whose
+  account is `active` and whose `availability` is `available` are considered.
+  `application_id`, `status` and `match_score` are `null`.
+
+Both origins go through the same `JobCompatibilityPolicy` with the same inputs,
+so applying never changes `compatibility_percentage`, `is_highlighted` or the
+counts: two professionals with the same résumé skills get the same values
+whatever their origin. Rows are ranked together by percentage; on equal
+percentages applicants come first (oldest application first), then automatic
+matches by `candidate_id`. A job without required skills has no automatic
+matches.
+
+An automatic match exposes the same `profile` as an applicant (`candidate_id`,
+`full_name`, `city`, `state`); contact and identification data (email, phone,
+CPF, birth date) are never returned for either origin. Contacting a
+professional is a separate story (US-29).
+
+The header keeps `total_applicant_count` and `full_match_count` for
+applications only and adds `automatic_match_count`.
 
 ## Failures
 
