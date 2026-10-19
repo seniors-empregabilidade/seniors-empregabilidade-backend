@@ -29,4 +29,3 @@ class JobCompatibilityPolicy:
             for candidate_id, skill_ids in skill_ids_by_candidate.items()
         ]
         return sorted(scores, key=lambda score: (-score.percentage, score.candidate_id))
-
