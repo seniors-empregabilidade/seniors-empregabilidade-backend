@@ -1,12 +1,12 @@
 import os
 from collections.abc import Iterator
 from datetime import UTC, date, datetime
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from sqlalchemy import delete
+from sqlalchemy import delete, func, select
 
 from app.db.models import (
     Administrator,
@@ -126,7 +126,7 @@ def actors(application: FastAPI) -> Iterator[dict[str, UUID]]:
     with factory.begin() as session:
         session.execute(
             delete(ResumeGuidance).where(
-                ResumeGuidance.candidate_id == ids["contacted"]
+                ResumeGuidance.administrator_id == ids["admin"]
             )
         )
         session.execute(delete(AppUser).where(AppUser.identity_subject.in_(SUBJECTS)))
@@ -231,3 +231,128 @@ def test_list_rejects_invalid_filters(
 
     assert response.status_code == 422
     assert response.json()["code"] == "validation_error"
+
+
+def test_admin_records_guidance_with_server_owned_metadata(
+    client: TestClient, actors: dict[str, UUID]
+) -> None:
+    path = f"{LIST_PATH}/{actors['empty']}/guidance"
+
+    response = client.post(
+        path,
+        json={"note": "  Complete your résumé summary.  "},
+        headers=auth("admin"),
+    )
+
+    assert response.status_code == 201
+    assert response.headers["Cache-Control"] == "no-store"
+    assert set(response.json()) == {"id", "note", "created_at", "administrator_name"}
+    assert response.json()["note"] == "Complete your résumé summary."
+    assert response.json()["administrator_name"] == "Synthetic Admin"
+    assert datetime.fromisoformat(response.json()["created_at"]).tzinfo is not None
+    with get_session_factory()() as session:
+        stored = session.scalar(
+            select(ResumeGuidance).where(ResumeGuidance.candidate_id == actors["empty"])
+        )
+        assert stored is not None
+        assert stored.administrator_id == actors["admin"]
+        assert stored.note == response.json()["note"]
+    listed = client.get(f"{LIST_PATH}?contact_status=contacted", headers=auth("admin"))
+    assert [item["full_name"] for item in listed.json()] == [
+        "A Empty Resume",
+        "C Contacted Resume",
+    ]
+    assert listed.json()[0]["last_guidance"] == response.json()
+    candidate = client.get(f"{LIST_PATH}/me", headers=auth("empty"))
+    assert "last_guidance" not in candidate.json()
+    assert "note" not in candidate.json()
+
+
+def test_guidance_is_append_only_and_newest_entry_is_listed(
+    client: TestClient, actors: dict[str, UUID]
+) -> None:
+    path = f"{LIST_PATH}/{actors['contacted']}/guidance"
+
+    response = client.post(
+        path, json={"note": "Follow-up guidance"}, headers=auth("admin")
+    )
+
+    assert response.status_code == 201
+    with get_session_factory()() as session:
+        count = session.scalar(
+            select(func.count())
+            .select_from(ResumeGuidance)
+            .where(ResumeGuidance.candidate_id == actors["contacted"])
+        )
+    assert count == 3
+    listed = client.get(LIST_PATH, headers=auth("admin"))
+    assert listed.json()[2]["last_guidance"] == response.json()
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"note": ""},
+        {"note": "   "},
+        {"note": "x" * 2001},
+        {"note": "Valid", "administrator_id": str(uuid4())},
+    ],
+)
+def test_invalid_guidance_creates_no_record(
+    client: TestClient, actors: dict[str, UUID], body: dict[str, str]
+) -> None:
+    response = client.post(
+        f"{LIST_PATH}/{actors['empty']}/guidance",
+        json=body,
+        headers=auth("admin"),
+    )
+
+    assert response.status_code == 422
+    assert response.headers["content-type"] == "application/problem+json"
+    assert response.json()["code"] == "validation_error"
+    with get_session_factory()() as session:
+        count = session.scalar(
+            select(func.count())
+            .select_from(ResumeGuidance)
+            .where(ResumeGuidance.candidate_id == actors["empty"])
+        )
+    assert count == 0
+
+
+def test_unknown_professional_returns_stable_not_found(
+    client: TestClient, actors: dict[str, UUID]
+) -> None:
+    response = client.post(
+        f"{LIST_PATH}/{uuid4()}/guidance",
+        json={"note": "Synthetic guidance"},
+        headers=auth("admin"),
+    )
+
+    assert response.status_code == 404
+    assert response.headers["content-type"] == "application/problem+json"
+    assert response.json()["code"] == "professional_not_found"
+
+
+@pytest.mark.parametrize("role", ["empty", "company"])
+def test_guidance_rejects_non_administrators(
+    client: TestClient, actors: dict[str, UUID], role: str
+) -> None:
+    response = client.post(
+        f"{LIST_PATH}/{actors['contacted']}/guidance",
+        json={"note": "Synthetic guidance"},
+        headers=auth(role),
+    )
+
+    assert response.status_code == 403
+    assert response.json()["code"] == "administrator_required"
+
+
+def test_guidance_requires_authentication(
+    client: TestClient, actors: dict[str, UUID]
+) -> None:
+    response = client.post(
+        f"{LIST_PATH}/{actors['contacted']}/guidance",
+        json={"note": "Synthetic guidance"},
+    )
+
+    assert response.status_code == 401

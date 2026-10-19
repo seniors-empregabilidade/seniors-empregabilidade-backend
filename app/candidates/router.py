@@ -19,6 +19,7 @@ from app.candidates.schemas import (
     ExperienceCreateRequest,
     ExperienceResponse,
     ExperienceUpdateRequest,
+    GuidanceCreateRequest,
     GuidanceResponse,
     ProfessionalProfileResponse,
     ProfessionalProfileUpdateRequest,
@@ -37,6 +38,7 @@ from app.candidates.services import (
     document_link,
     get_profile,
     list_professionals,
+    record_guidance,
     register_professional,
     remove_certification,
     remove_document,
@@ -114,6 +116,27 @@ def read_professionals(
         offset=offset,
     )
     return [_professional_summary_response(item) for item in summaries]
+
+
+@router.post(
+    "/{professional_id}/guidance", response_model=GuidanceResponse, status_code=201
+)
+def create_guidance(
+    professional_id: UUID,
+    request: GuidanceCreateRequest,
+    administrator: Annotated[CurrentUser, Depends(require_administrator)],
+    session: Annotated[Session, Depends(get_session)],
+    response: Response,
+) -> GuidanceResponse:
+    response.headers["Cache-Control"] = "no-store"
+    return _guidance_response(
+        record_guidance(
+            professional_id,
+            administrator.id,
+            request.note,
+            session=session,
+        )
+    )
 
 
 @router.get("/me", response_model=ProfessionalProfileResponse)

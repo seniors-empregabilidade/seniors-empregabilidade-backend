@@ -20,6 +20,7 @@ from app.candidates.services.experiences import (
 )
 from app.candidates.services.get_profile import get_profile
 from app.candidates.services.list_professionals import list_professionals
+from app.candidates.services.record_guidance import record_guidance
 from app.candidates.services.register_professional import register_professional
 from app.candidates.services.skills import add_skill, remove_skill, replace_skills
 from app.candidates.services.update_profile import update_profile
@@ -33,6 +34,7 @@ __all__ = [
     "document_link",
     "get_profile",
     "list_professionals",
+    "record_guidance",
     "register_professional",
     "remove_certification",
     "remove_document",
