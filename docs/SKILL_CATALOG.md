@@ -33,10 +33,13 @@ made only of accents, or when it carries a control character such as NUL.
 A search follows the same normalization. A blank search lists the catalog, and a
 search that no stored name could contain returns an empty list.
 
-The normalization lives in `app.skills.domain.SkillName`, and
-`app.skills.services.find_or_create_skills` is the only place that creates a
-skill. The database enforces the rest: `uq_skill_normalized_name` rejects a
-duplicate even when two requests arrive at the same time.
+The normalization lives in `app.skills.domain.SkillName`. Runtime creation uses
+`app.skills.services.find_or_create_skills`. Migration `753757edc4f5` adds
+"Ética" and "Trabalho em grupo" as baseline soft skills because
+`scripts/seed.py` runs only in local and test environments. The database enforces
+the rest: `uq_skill_normalized_name` rejects a duplicate even when two requests
+arrive at the same time. The migration preserves pre-existing entries and its
+downgrade leaves both names in the catalog because their origin is unknown.
 
 ## API contract
 
@@ -45,22 +48,26 @@ All paths start with `/api/v1`. Any authenticated account may read the catalog.
 | Endpoint | Request | Success |
 | --- | --- | --- |
 | `GET /skills` | `search` (optional, matched without case or accents), `limit` (1–50, default 20) | `200`: list of `id`, `name`, `type`, sorted by name |
+| `PUT /professionals/me/skills` | `{ "skill_ids": ["<uuid>"] }` (up to 100 catalog IDs; an empty list clears the selection) | `200`: final list of `id`, `name`, `type`, sorted by name |
 
-Requests that create or attach skills send objects, not identifiers:
+Companies and administrators creating skills send objects:
 
 ```json
 { "skills": [{ "name": "NR-11", "type": "hard" }] }
 ```
 
-Responses return the resolved catalog entries, so an interface can render the
-stored spelling and send the `id` back later:
+Candidates select existing catalog entries by `id` through
+`PUT /professionals/me/skills`; names and free text are rejected with
+`422 validation_error`. An unknown `id` returns `404 skill_not_found` without
+changing the selection. The PUT response is a list of resolved catalog entries,
+so an interface can render the stored spelling:
 
 ```json
-{ "skills": [{ "id": "…", "name": "NR-11", "type": "hard" }] }
+[{ "id": "<uuid>", "name": "NR-11", "type": "hard" }]
 ```
 
 ## Remaining work
 
-Course skills, résumé skill editing and the compatibility calculation consume this
-catalog and are implemented by their own user stories. Merging or renaming catalog
-entries has no administrative endpoint yet.
+Course skills and the compatibility calculation consume this catalog and are
+implemented by their own user stories. Merging or renaming catalog entries has no
+administrative endpoint yet.

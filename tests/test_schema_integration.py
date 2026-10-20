@@ -5,7 +5,8 @@ import pytest
 from sqlalchemy import inspect, select
 from sqlalchemy.dialects.postgresql.base import PGInspector
 
-from app.db.models import AppUser
+from app.db.models import AppUser, Skill
+from app.db.models.enums import SkillType
 from app.db.session import get_engine, get_session_factory
 from scripts.seed import seed_database
 
@@ -40,6 +41,21 @@ def test_migrated_schema_contains_postgresql_domain_objects() -> None:
             foreign_key["referred_table"] == "skill"
             for foreign_key in inspector.get_foreign_keys(join_table)
         )
+
+
+@pytest.mark.integration
+def test_migrated_catalog_offers_the_baseline_soft_skills() -> None:
+    with get_session_factory()() as session:
+        baseline = session.execute(
+            select(Skill.name, Skill.type).where(
+                Skill.normalized_name.in_(["etica", "trabalho em grupo"])
+            )
+        ).all()
+
+    assert {tuple(row) for row in baseline} == {
+        ("Ética", SkillType.SOFT),
+        ("Trabalho em grupo", SkillType.SOFT),
+    }
 
 
 @pytest.mark.integration

@@ -5,6 +5,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router
+from app.candidates.domain.certificate_document import MAX_DOCUMENT_BYTES
+from app.core.body_limit import RequestBodyLimitMiddleware
 from app.core.config import Settings, get_settings
 from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging
@@ -39,6 +41,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.state.limiter = limiter
     register_exception_handlers(application)
 
+    # The largest body is one certificate upload plus its multipart framing.
+    application.add_middleware(
+        RequestBodyLimitMiddleware, max_bytes=MAX_DOCUMENT_BYTES + 64 * 1024
+    )
     application.add_middleware(RequestContextMiddleware)
     application.add_middleware(
         CORSMiddleware,

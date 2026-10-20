@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from typing import Annotated
 from uuid import UUID
 
@@ -42,6 +42,22 @@ class EducationResponse(BaseModel):
     end_date: date | None = None
 
 
+class CertificationDocumentResponse(BaseModel):
+    filename: str
+    content_type: str
+    size_bytes: int
+    uploaded_at: datetime
+
+
+class CertificationResponse(BaseModel):
+    id: UUID
+    name: str
+    issuer: str | None = None
+    issued_date: date | None = None
+    expiration_date: date | None = None
+    document: CertificationDocumentResponse | None = None
+
+
 class ProfessionalProfileResponse(BaseModel):
     id: UUID
     full_name: str
@@ -53,6 +69,7 @@ class ProfessionalProfileResponse(BaseModel):
     summary: str | None = None
     experiences: list[ExperienceResponse]
     education: list[EducationResponse]
+    certifications: list[CertificationResponse]
     skills: list[SkillResponse]
 
 
