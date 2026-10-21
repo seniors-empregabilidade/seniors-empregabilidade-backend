@@ -8,7 +8,29 @@ only its own jobs: another company's job answers `404 job_not_found`, the same
 as a job that does not exist.
 
 Candidates find published jobs through `GET /jobs`, described in
-[JOB_SEARCH.md](JOB_SEARCH.md).
+[JOB_SEARCH.md](JOB_SEARCH.md), and read one job through
+`GET /jobs/{job_id}`, described below.
+
+## Job detail (US-11-T01)
+
+`GET /api/v1/jobs/{job_id}` requires `require_candidate` (`401` anonymous,
+`403 candidate_required` otherwise) and is sent with `Cache-Control: no-store`.
+It returns `id`, `title`, `description`, `company_id`, `company_name` (trade
+name, else legal name), `skills` (`id`, `name`, `type`: the job has no separate
+requirements field, so `hard` skills are the requirements and `soft` ones the
+competencies), `work_mode`, `location`, `closing_date` (the deadline), `status`,
+`published_at`, and the candidate's state:
+
+| Field | Meaning |
+| --- | --- |
+| `already_applied` | The caller has an application to the job, whatever its status (withdrawn included, since `(candidate_id, job_id)` is unique). |
+| `is_open` | `published` and not past its closing date in `America/Sao_Paulo`. |
+| `is_expired` | Status `expired`, or `published` but past its closing date. |
+| `is_applicable` | `is_open` and not `already_applied`. A closed, paused or expired job is never applicable. |
+
+A draft, a job under review, a job of a `blocked` company account and an unknown
+id answer `404 job_not_found`. Other statuses are readable, so a candidate can
+still see a job that closed after they applied.
 
 ## Endpoints
 
