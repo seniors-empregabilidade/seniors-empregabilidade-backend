@@ -78,6 +78,12 @@ Invalid parameters return `422 validation_error` with the field under `errors`
   `America/Sao_Paulo`. `app/jobs/services/open_job.py::is_open_at` holds that
   rule, and both this search and `find_similar_jobs` use it. There is no
   "Aberta" status in `JobStatus`; the card's "Aberta" is this rule.
+- **A blocked company account is left out.** Both listings join `app_user` on
+  `company.id` and drop a job when that account's `account_status` is
+  `blocked` (`publishing_company_is_not_blocked`). The job stays `published`.
+  Reactivating the account lists it again while it is still open. See
+  [ACCOUNT_MANAGEMENT.md](ACCOUNT_MANAGEMENT.md). `suspended` is not assigned
+  by that module and is not excluded here.
 - **`to_local_date` moved to `app/core/local_date.py`.** It used to live in
   `app/applications/domain/policies`; the jobs module needs it too, and one
   module must not import another's private code.
@@ -115,7 +121,9 @@ Invalid parameters return `422 validation_error` with the field under `errors`
   "Gestão". Accent-insensitive search would need the `unaccent` extension or a
   normalized title column, both a migration.
 - **The company's approval status is not checked.** Like `find_similar_jobs`,
-  the search lists open jobs whatever their company's current status is.
+  the search lists an open job whatever `company.status` is (`pending`,
+  `approved`, `rejected` or `blocked`). A blocked `app_user.account_status` is
+  a separate check; see Decisions.
 
 ## Local verification
 

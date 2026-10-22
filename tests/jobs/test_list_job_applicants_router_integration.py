@@ -1,13 +1,16 @@
 """Integration tests for GET /api/v1/jobs/{job_id}/applications."""
 
-from uuid import uuid4
+from datetime import UTC, datetime, timedelta
+from typing import Any
+from uuid import UUID, uuid4
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
-from app.db.models import Application, Resume, ResumeSkill
+from app.db.models import Application, JobSkill, Resume, ResumeSkill, Skill
+from app.db.models.enums import ApplicationStatus, SkillType
 from tests.jobs.conftest import (
     MANAGE_JOBS_OTHER_TOKEN,
     MANAGE_JOBS_OWNER_TOKEN,
@@ -20,6 +23,49 @@ pytestmark = pytest.mark.integration
 
 def applicants_path(job_id: object) -> str:
     return f"/api/v1/jobs/{job_id}/applications"
+
+
+def add_job_skills(session: Session, *, job_id: UUID, count: int) -> list[UUID]:
+    """Add ``count`` synthetic catalog skills to a job and return their ids."""
+    skills = [
+        Skill(
+            name=f"Manage Jobs Extra Skill {index}",
+            normalized_name=f"manage jobs extra skill {index}",
+            type=SkillType.HARD,
+        )
+        for index in range(count)
+    ]
+    session.add_all(skills)
+    session.flush()
+    session.add_all(JobSkill(job_id=job_id, skill_id=skill.id) for skill in skills)
+    session.commit()
+    return [skill.id for skill in skills]
+
+
+def give_resume_skills(
+    session: Session, *, candidate_id: UUID, skill_ids: list[UUID]
+) -> None:
+    resume = Resume(candidate_id=candidate_id)
+    session.add(resume)
+    session.flush()
+    session.add_all(
+        ResumeSkill(resume_id=resume.id, skill_id=skill_id) for skill_id in skill_ids
+    )
+    session.commit()
+
+
+def list_applicants(client: TestClient, job_id: UUID) -> list[dict[str, Any]]:
+    response = client.get(
+        applicants_path(job_id),
+        headers=manage_jobs_authorization(MANAGE_JOBS_OWNER_TOKEN),
+    )
+    assert response.status_code == 200
+    applicants: list[dict[str, Any]] = response.json()["applicants"]
+    return applicants
+
+
+def candidate_ids(applicants: list[dict[str, Any]]) -> list[str]:
+    return [str(applicant["profile"]["candidate_id"]) for applicant in applicants]
 
 
 def test_owner_can_list_applicants_for_their_job(
@@ -55,6 +101,8 @@ def test_response_includes_match_counts(
         assert applicant["required_skill_count"] == 1
         assert "matched_skill_count" in applicant
         assert "match_score" in applicant
+        assert "compatibility_percentage" in applicant
+        assert "is_highlighted" in applicant
 
 
 def test_response_includes_safe_profile_fields_only(
@@ -181,3 +229,143 @@ def test_job_with_no_applicants_returns_empty_list(
     assert body["total_applicant_count"] == 0
     assert body["applicants"] == []
     assert body["full_match_count"] == 0
+
+
+@pytest.mark.parametrize("skilled", ["candidate_one_id", "candidate_two_id"])
+def test_applicants_are_ordered_by_compatibility_descending(
+    manage_jobs_client: TestClient,
+    database_session: Session,
+    manage_jobs_scenario: ManageJobsScenario,
+    skilled: str,
+) -> None:
+    skilled_id = getattr(manage_jobs_scenario, skilled)
+    unskilled_id = (
+        manage_jobs_scenario.candidate_two_id
+        if skilled == "candidate_one_id"
+        else manage_jobs_scenario.candidate_one_id
+    )
+    give_resume_skills(
+        database_session,
+        candidate_id=skilled_id,
+        skill_ids=[manage_jobs_scenario.skill_id],
+    )
+
+    applicants = list_applicants(manage_jobs_client, manage_jobs_scenario.open_job_id)
+
+    assert candidate_ids(applicants) == [str(skilled_id), str(unskilled_id)]
+    assert [a["compatibility_percentage"] for a in applicants] == ["100.00", "0.00"]
+    assert [a["is_highlighted"] for a in applicants] == [True, False]
+
+
+def test_highlighted_applicants_come_before_those_below_fifty_percent(
+    manage_jobs_client: TestClient,
+    database_session: Session,
+    manage_jobs_scenario: ManageJobsScenario,
+) -> None:
+    extra_skill_ids = add_job_skills(
+        database_session, job_id=manage_jobs_scenario.open_job_id, count=2
+    )
+    give_resume_skills(
+        database_session,
+        candidate_id=manage_jobs_scenario.candidate_one_id,
+        skill_ids=[manage_jobs_scenario.skill_id],
+    )
+    give_resume_skills(
+        database_session,
+        candidate_id=manage_jobs_scenario.candidate_two_id,
+        skill_ids=extra_skill_ids,
+    )
+
+    applicants = list_applicants(manage_jobs_client, manage_jobs_scenario.open_job_id)
+
+    assert candidate_ids(applicants) == [
+        str(manage_jobs_scenario.candidate_two_id),
+        str(manage_jobs_scenario.candidate_one_id),
+    ]
+    assert [a["compatibility_percentage"] for a in applicants] == ["66.67", "33.33"]
+    assert [a["is_highlighted"] for a in applicants] == [True, False]
+    assert [a["matched_skill_count"] for a in applicants] == [2, 1]
+    assert [a["required_skill_count"] for a in applicants] == [3, 3]
+
+
+def test_exactly_fifty_percent_is_highlighted(
+    manage_jobs_client: TestClient,
+    database_session: Session,
+    manage_jobs_scenario: ManageJobsScenario,
+) -> None:
+    add_job_skills(database_session, job_id=manage_jobs_scenario.open_job_id, count=1)
+    give_resume_skills(
+        database_session,
+        candidate_id=manage_jobs_scenario.candidate_one_id,
+        skill_ids=[manage_jobs_scenario.skill_id],
+    )
+
+    applicants = list_applicants(manage_jobs_client, manage_jobs_scenario.open_job_id)
+
+    assert applicants[0]["compatibility_percentage"] == "50.00"
+    assert applicants[0]["is_highlighted"] is True
+    assert applicants[1]["compatibility_percentage"] == "0.00"
+    assert applicants[1]["is_highlighted"] is False
+
+
+def test_job_without_required_skills_lists_applicants_without_a_score(
+    manage_jobs_client: TestClient,
+    database_session: Session,
+    manage_jobs_scenario: ManageJobsScenario,
+) -> None:
+    database_session.add(
+        Application(
+            candidate_id=manage_jobs_scenario.candidate_one_id,
+            job_id=manage_jobs_scenario.closed_job_id,
+            status=ApplicationStatus.APPLIED,
+        )
+    )
+    database_session.commit()
+
+    response = manage_jobs_client.get(
+        applicants_path(manage_jobs_scenario.closed_job_id),
+        headers=manage_jobs_authorization(MANAGE_JOBS_OWNER_TOKEN),
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["full_match_count"] == 0
+    [applicant] = body["applicants"]
+    assert applicant["compatibility_percentage"] is None
+    assert applicant["is_highlighted"] is False
+    assert applicant["matched_skill_count"] == 0
+    assert applicant["required_skill_count"] == 0
+
+
+@pytest.mark.parametrize("earlier", ["candidate_one_id", "candidate_two_id"])
+def test_equal_compatibility_keeps_the_oldest_application_first(
+    manage_jobs_client: TestClient,
+    database_session: Session,
+    manage_jobs_scenario: ManageJobsScenario,
+    earlier: str,
+) -> None:
+    earlier_id = getattr(manage_jobs_scenario, earlier)
+    later_id = (
+        manage_jobs_scenario.candidate_two_id
+        if earlier == "candidate_one_id"
+        else manage_jobs_scenario.candidate_one_id
+    )
+    applied_at = datetime(2026, 1, 1, tzinfo=UTC)
+    for candidate_id, created_at in (
+        (earlier_id, applied_at),
+        (later_id, applied_at + timedelta(days=1)),
+    ):
+        database_session.execute(
+            update(Application)
+            .where(
+                Application.job_id == manage_jobs_scenario.open_job_id,
+                Application.candidate_id == candidate_id,
+            )
+            .values(created_at=created_at)
+        )
+    database_session.commit()
+
+    applicants = list_applicants(manage_jobs_client, manage_jobs_scenario.open_job_id)
+
+    assert [a["compatibility_percentage"] for a in applicants] == ["0.00", "0.00"]
+    assert candidate_ids(applicants) == [str(earlier_id), str(later_id)]

@@ -1,8 +1,19 @@
 import os
+from datetime import date
+from uuid import uuid4
 
 import pytest
+from sqlalchemy.orm import Session
 
 from app.applications.services.find_similar_jobs import find_similar_jobs
+from app.db.models import AppUser, Company, Job, JobSkill, Skill
+from app.db.models.enums import (
+    AccountStatus,
+    CompanyStatus,
+    JobStatus,
+    SkillType,
+    UserType,
+)
 from app.db.session import get_session_factory
 from tests.applications.conftest import ApplicationsScenario
 
@@ -111,3 +122,62 @@ def test_a_job_with_a_future_closing_date_is_suggested(
     # closing date (see conftest); either one demonstrates the case.
     ids = [job.id for job in suggestions]
     assert scenario.job_similar_strong_id in ids
+
+
+def test_an_open_job_of_a_blocked_company_is_never_suggested(
+    database_session: Session,
+) -> None:
+    marker = uuid4().hex[:10]
+
+    def company(status: AccountStatus) -> AppUser:
+        user = AppUser(
+            email=f"similar-{marker}-{status.value}@company.example.invalid",
+            identity_subject=None,
+            user_type=UserType.COMPANY,
+            account_status=status,
+        )
+        database_session.add(user)
+        database_session.flush()
+        database_session.add(
+            Company(
+                id=user.id,
+                cnpj=f"{uuid4().int % 10**14:014d}",
+                legal_name=f"Similar {status.value} {marker}",
+                corporate_email=user.email,
+                status=CompanyStatus.APPROVED,
+            )
+        )
+        return user
+
+    active = company(AccountStatus.ACTIVE)
+    blocked = company(AccountStatus.BLOCKED)
+    skill = Skill(
+        name=f"Similar {marker}",
+        normalized_name=f"similar {marker}",
+        type=SkillType.HARD,
+    )
+    database_session.add(skill)
+    database_session.flush()
+
+    def job(owner: AppUser) -> Job:
+        created = Job(
+            company_id=owner.id,
+            title=f"Similar {marker} {owner.account_status.value}",
+            description="Synthetic job for blocked-company suggestions.",
+            work_mode="remote",
+            status=JobStatus.PUBLISHED,
+            closing_date=date(2099, 12, 31),
+        )
+        database_session.add(created)
+        database_session.flush()
+        database_session.add(JobSkill(job_id=created.id, skill_id=skill.id))
+        return created
+
+    source = job(active)
+    job(blocked)
+
+    suggestions = find_similar_jobs(
+        database_session, job_id=source.id, candidate_id=uuid4()
+    )
+
+    assert suggestions == []

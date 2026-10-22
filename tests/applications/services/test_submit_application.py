@@ -98,6 +98,26 @@ def test_applying_to_an_expired_job_is_rejected(
         )
 
 
+def test_applying_to_a_blocked_company_job_is_rejected(
+    submission_scenario: SubmissionScenario,
+) -> None:
+    with get_session_factory()() as session, pytest.raises(JobNotOpenError):
+        submit_application(
+            session,
+            job_id=submission_scenario.job_blocked_company_id,
+            candidate_id=submission_scenario.owner_id,
+            now=submission_scenario.now,
+        )
+
+    with get_session_factory()() as session:
+        rows = session.scalars(
+            select(Application).where(
+                Application.job_id == submission_scenario.job_blocked_company_id
+            )
+        ).all()
+        assert rows == []
+
+
 def test_applying_to_a_nonexistent_job_is_not_found(
     submission_scenario: SubmissionScenario,
 ) -> None:
