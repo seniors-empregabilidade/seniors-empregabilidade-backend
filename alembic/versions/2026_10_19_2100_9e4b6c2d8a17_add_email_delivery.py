@@ -6,7 +6,7 @@ e-mail never blocks the in-app notification. The recipient address is read from
 ``app_user`` at send time and is not stored here.
 
 Revision ID: 9e4b6c2d8a17
-Revises: 9b83337775e5
+Revises: 2ee06058c78d
 Create Date: 2026-10-19 21:00:00.000000+00:00
 
 """
@@ -19,7 +19,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "9e4b6c2d8a17"
-down_revision: str | Sequence[str] | None = "9b83337775e5"
+down_revision: str | Sequence[str] | None = "2ee06058c78d"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
