@@ -5,8 +5,8 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.db.models import Application, Company, Job, JobSkill
-from app.jobs.services import is_open_at
+from app.db.models import Application, AppUser, Company, Job, JobSkill
+from app.jobs.services import is_open_at, publishing_company_is_not_blocked
 
 DEFAULT_SIMILARITY_LIMIT = 5
 
@@ -31,7 +31,8 @@ def find_similar_jobs(
     Ranks other open jobs by how many skills they share with the given job,
     excluding the source job itself and every job the candidate already
     applied to. Openness comes from `app.jobs.services.is_open_at`, the same
-    rule the job search uses.
+    rule the job search uses, and a company whose account is `blocked` is
+    omitted the same way.
     """
     reference_now = now or datetime.now(UTC)
 
@@ -46,11 +47,13 @@ def find_similar_jobs(
         select(Job.id, Job.title, company_display_name.label("company_name"))
         .join(JobSkill, JobSkill.job_id == Job.id)
         .join(Company, Company.id == Job.company_id)
+        .join(AppUser, AppUser.id == Company.id)
         .where(
             JobSkill.skill_id.in_(target_skill_ids),
             Job.id != job_id,
             Job.id.not_in(applied_job_ids),
             is_open_at(reference_now),
+            publishing_company_is_not_blocked(),
         )
         .group_by(Job.id, Job.title, company_display_name)
         .order_by(shared_skill_count.desc(), Job.id)

@@ -12,8 +12,9 @@ domain.
 1. `POST /api/v1/applications` requires `require_candidate`. It registers the
    caller's application to `job_id` (never a candidate ID from the request
    body — that is always the authenticated caller). The job must be open
-   (published and within `closing_date`); a duplicate application to the same
-   job, by the same candidate, is rejected. See "Decisions" below for the
+   (published, within `closing_date`, and owned by a company whose account is
+   not `blocked`); a duplicate application to the same job, by the same
+   candidate, is rejected. See "Decisions" below for the
    compatibility calculation and the concurrency guarantee.
 2. `GET /api/v1/applications/me` requires `require_candidate`. It returns every
    application owned by the caller — never another candidate's — each with the
@@ -36,10 +37,16 @@ identity surface.
   chosen from the existing `application_status` enum instead of adding a new
   value. It is already one of the statuses `withdraw_application` treats as
   active, so a freshly submitted application can be withdrawn right away.
-- **An open job is published and within its closing date** — the exact
-  criterion `find_similar_jobs` already used: `Job.status == PUBLISHED` and
+- **An open job is published, within its closing date, and owned by a company
+  whose account is not `blocked`.** The date criterion is the one
+  `find_similar_jobs` already used: `Job.status == PUBLISHED` and
   `Job.closing_date >= today` (`today` from `to_local_date`, see below).
-  `submit_application` reuses this instead of redefining it.
+  `submit_application` reuses it. A blocked company account answers
+  `409 job_not_open` and creates no application; the job itself is left
+  `published`. The company `app_user` row is locked before that check, so a
+  block that commits first is the status this request observes. Reactivating
+  the account makes that job applicable again while it is still within
+  `closing_date`. See [ACCOUNT_MANAGEMENT.md](ACCOUNT_MANAGEMENT.md).
 - **Compatibility ("matches X of Y requirements") is computed once, at
   submission time, and never recalculated.** `matched_requirements` and
   `total_requirements` (added by migration `b8c94551d715`) are plain
@@ -149,7 +156,8 @@ identity surface.
   how many skills they share with the source job, excluding that job itself
   and every job the candidate already applied to, capped at 5 suggestions.
   "Open" comes from `app.jobs.services.is_open_at`, the same rule the job
-  search uses (see `docs/JOB_SEARCH.md`). It does not use the candidate
+  search uses (see `docs/JOB_SEARCH.md`), and it also omits a job whose
+  company account is `blocked`. It does not use the candidate
   compatibility policy of the search: it compares two jobs, and its ranking
   and limit run in SQL.
 

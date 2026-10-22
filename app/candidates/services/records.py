@@ -61,6 +61,7 @@ class ProfileRecord:
     education: tuple[EducationRecord, ...]
     certifications: tuple[CertificationRecord, ...]
     skills: tuple[CatalogSkill, ...]
+    missing_fields: tuple[str, ...]
 
 
 def experience_record(experience: Experience) -> ExperienceRecord:
