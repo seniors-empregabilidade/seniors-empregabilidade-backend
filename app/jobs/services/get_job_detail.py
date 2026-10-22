@@ -5,11 +5,11 @@ from uuid import UUID
 from sqlalchemy import exists, func, select
 from sqlalchemy.orm import Session
 
-from app.core.local_date import to_local_date
 from app.db.models import Application, AppUser, Company, Job
-from app.db.models.enums import AccountStatus, JobStatus, WorkMode
+from app.db.models.enums import JobStatus, WorkMode
 from app.jobs.exceptions import JobNotFoundError
 from app.jobs.services.job_skills import skills_by_job
+from app.jobs.services.open_job import is_open_at, publishing_company_is_not_blocked
 from app.skills.services import CatalogSkill
 
 _NOT_PUBLIC_STATUSES = (JobStatus.DRAFT, JobStatus.UNDER_REVIEW)
@@ -52,7 +52,6 @@ def get_job_detail(
     candidate has no application to it yet, whatever that application's status,
     because `(candidate_id, job_id)` is unique.
     """
-    today = to_local_date(now or datetime.now(UTC))
     row = session.execute(
         select(
             Job,
@@ -63,23 +62,23 @@ def get_job_detail(
                 Application.candidate_id == candidate_id,
             )
             .label("already_applied"),
+            is_open_at(now or datetime.now(UTC)).label("is_open"),
         )
         .join(Company, Company.id == Job.company_id)
         .join(AppUser, AppUser.id == Company.id)
         .where(
             Job.id == job_id,
             Job.status.not_in(_NOT_PUBLIC_STATUSES),
-            AppUser.account_status != AccountStatus.BLOCKED,
+            publishing_company_is_not_blocked(),
         )
     ).one_or_none()
     if row is None:
         raise JobNotFoundError
 
     job = row.Job
-    past_closing_date = job.closing_date < today
-    is_open = job.status == JobStatus.PUBLISHED and not past_closing_date
+    is_open = row.is_open
     is_expired = job.status == JobStatus.EXPIRED or (
-        job.status == JobStatus.PUBLISHED and past_closing_date
+        job.status == JobStatus.PUBLISHED and not is_open
     )
     return JobDetail(
         id=job.id,

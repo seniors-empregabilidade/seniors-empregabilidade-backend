@@ -54,6 +54,7 @@ class DetailScenario:
     paused_id: UUID
     expired_id: UUID
     late_id: UUID
+    closing_today_id: UUID
     draft_id: UUID
     under_review_id: UUID
     blocked_company_job_id: UUID
@@ -141,6 +142,7 @@ def scenario(database_session: Session) -> DetailScenario:
         "paused": job("Paused", status=JobStatus.PAUSED),
         "expired": job("Expired", status=JobStatus.EXPIRED),
         "late": job("Late", closing_date=today - timedelta(days=1)),
+        "closing_today": job("Closing today", closing_date=today),
         "draft": job("Draft", status=JobStatus.DRAFT),
         "under_review": job("Review", status=JobStatus.UNDER_REVIEW),
         "blocked": job("Blocked", owner=blocked_user),
@@ -170,6 +172,7 @@ def scenario(database_session: Session) -> DetailScenario:
         paused_id=jobs["paused"].id,
         expired_id=jobs["expired"].id,
         late_id=jobs["late"].id,
+        closing_today_id=jobs["closing_today"].id,
         draft_id=jobs["draft"].id,
         under_review_id=jobs["under_review"].id,
         blocked_company_job_id=jobs["blocked"].id,
@@ -257,6 +260,16 @@ def test_a_job_that_is_not_open_is_not_applicable(
     assert body["is_open"] is False
     assert body["is_expired"] is expired
     assert body["is_applicable"] is False
+
+
+def test_a_job_closing_today_is_still_open(
+    detail_client: TestClient, scenario: DetailScenario
+) -> None:
+    body = read(detail_client, scenario.closing_today_id).json()
+
+    assert body["is_open"] is True
+    assert body["is_expired"] is False
+    assert body["is_applicable"] is True
 
 
 def test_a_closed_job_stays_readable_for_who_applied(
