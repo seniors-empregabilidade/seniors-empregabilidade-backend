@@ -21,7 +21,7 @@ from app.db.models import (
     ResumeSkill,
     Skill,
 )
-from app.db.models.enums import ApplicationStatus, JobStatus, UserType
+from app.db.models.enums import AccountStatus, ApplicationStatus, JobStatus, UserType
 from app.db.session import get_session_factory
 from app.identity.dependencies import get_identity_provider
 from app.identity.exceptions import InvalidAccessTokenError
@@ -425,6 +425,9 @@ class SubmissionScenario:
     job_already_applied_id: UUID
     """Published and open, but the owner already has an application to it,
     so applying again must be rejected as a duplicate."""
+    job_blocked_company_id: UUID
+    """Published and within its closing date, but the company account is
+    `blocked`, so a new application must be rejected."""
     application_on_already_applied_job_id: UUID
 
 
@@ -448,9 +451,15 @@ def submission_scenario() -> Iterator[SubmissionScenario]:
             identity_subject=None,
             user_type=UserType.COMPANY,
         )
-        session.add_all([owner, company_user])
+        blocked_company_user = AppUser(
+            email="applications-submit-blocked@synthetic.example.invalid",
+            identity_subject=None,
+            user_type=UserType.COMPANY,
+            account_status=AccountStatus.BLOCKED,
+        )
+        session.add_all([owner, company_user, blocked_company_user])
         session.flush()
-        user_ids.extend((owner.id, company_user.id))
+        user_ids.extend((owner.id, company_user.id, blocked_company_user.id))
 
         session.add_all(
             [
@@ -467,6 +476,14 @@ def submission_scenario() -> Iterator[SubmissionScenario]:
                     legal_name="Submission Synthetic Services Ltd.",
                     trade_name="Submission Synthetic Services",
                     corporate_email=company_user.email,
+                    status="approved",
+                ),
+                Company(
+                    id=blocked_company_user.id,
+                    cnpj="20000000000400",
+                    legal_name="Blocked Submission Synthetic Ltd.",
+                    trade_name="Blocked Submission Synthetic",
+                    corporate_email=blocked_company_user.email,
                     status="approved",
                 ),
             ]
@@ -496,9 +513,15 @@ def submission_scenario() -> Iterator[SubmissionScenario]:
         far_future = date(2099, 12, 31)
         today_in_sao_paulo = to_local_date(now)
 
-        def make_job(*, status: JobStatus, title: str, closing_date: date) -> Job:
+        def make_job(
+            *,
+            status: JobStatus,
+            title: str,
+            closing_date: date,
+            company_id: UUID = company_user.id,
+        ) -> Job:
             return Job(
-                company_id=company_user.id,
+                company_id=company_id,
                 title=title,
                 description="Synthetic job for application submission tests.",
                 work_mode="remote",
@@ -526,7 +549,21 @@ def submission_scenario() -> Iterator[SubmissionScenario]:
             title="Submission Already Applied Role",
             closing_date=far_future,
         )
-        session.add_all([job_open, job_draft, job_expired, job_already_applied])
+        job_blocked_company = make_job(
+            status=JobStatus.PUBLISHED,
+            title="Submission Blocked Company Role",
+            closing_date=far_future,
+            company_id=blocked_company_user.id,
+        )
+        session.add_all(
+            [
+                job_open,
+                job_draft,
+                job_expired,
+                job_already_applied,
+                job_blocked_company,
+            ]
+        )
         session.flush()
 
         session.add_all(
@@ -557,6 +594,7 @@ def submission_scenario() -> Iterator[SubmissionScenario]:
             job_draft_id=job_draft.id,
             job_expired_id=job_expired.id,
             job_already_applied_id=job_already_applied.id,
+            job_blocked_company_id=job_blocked_company.id,
             application_on_already_applied_job_id=(
                 application_on_already_applied_job.id
             ),

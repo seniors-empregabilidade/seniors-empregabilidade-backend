@@ -7,11 +7,11 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.db.models import Company, Job, JobSkill, Resume, ResumeSkill, Skill
+from app.db.models import AppUser, Company, Job, JobSkill, Resume, ResumeSkill, Skill
 from app.db.models.enums import WorkMode
 from app.jobs.domain.policies.days_since_published import days_since_published
 from app.jobs.domain.policies.skill_match import match_skills
-from app.jobs.services.open_job import is_open_at
+from app.jobs.services.open_job import is_open_at, publishing_company_is_not_blocked
 from app.skills.services import CatalogSkill
 
 
@@ -41,8 +41,10 @@ def search_jobs(
 ) -> list[FoundJob]:
     """List open jobs whose title contains `search`, most compatible first.
 
-    A blank search lists every open job. A search with a NUL character, which
-    no stored title can contain, finds nothing instead of reaching the database.
+    A blank search lists every open job. A job of a company whose account is
+    `blocked` is omitted; reactivating that account lists it again while it is
+    still open. A search with a NUL character, which no stored title can
+    contain, finds nothing instead of reaching the database.
     """
     reference_now = now or datetime.now(UTC)
     term = search.strip() if search else ""
@@ -71,8 +73,9 @@ def search_jobs(
             Job.published_at,
         )
         .join(Company, Company.id == Job.company_id)
+        .join(AppUser, AppUser.id == Company.id)
         .outerjoin(JobSkill, JobSkill.job_id == Job.id)
-        .where(is_open_at(reference_now))
+        .where(is_open_at(reference_now), publishing_company_is_not_blocked())
         .group_by(Job.id, Company.id)
         .order_by(
             matched_skill_count.desc(),
