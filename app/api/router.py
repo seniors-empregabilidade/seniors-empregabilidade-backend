@@ -10,6 +10,7 @@ from app.jobs.router import router as jobs_router
 from app.notifications.router import router as notifications_router
 from app.password_reset.router import router as password_reset_router
 from app.skills.router import router as skills_router
+from app.support.router import router as support_router
 
 api_router = APIRouter()
 api_router.include_router(account_management_router)
@@ -22,3 +23,4 @@ api_router.include_router(jobs_router)
 api_router.include_router(notifications_router)
 api_router.include_router(password_reset_router)
 api_router.include_router(skills_router)
+api_router.include_router(support_router)

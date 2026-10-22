@@ -81,6 +81,17 @@ class Settings(BaseSettings):
     email_dispatch_interval_seconds: PositiveFloat = 15.0
     email_max_attempts: PositiveInt = 5
 
+    # WhatsApp support contact: digits only, country code first, as wa.me expects.
+    # Unset hides the support button. The message never carries user data.
+    support_whatsapp_number: str | None = Field(
+        default=None, pattern=r"^[1-9][0-9]{9,14}$"
+    )
+    support_whatsapp_message: str = Field(
+        default="Olá! Preciso de ajuda com a plataforma Seniors.",
+        min_length=1,
+        max_length=500,
+    )
+
     # On in production, where CloudFront is in front and the socket address is
     # always the edge. Off locally, where the socket is the client.
     trust_proxy_headers: bool = False
@@ -90,6 +101,13 @@ class Settings(BaseSettings):
     def require_psycopg_driver(cls, value: str) -> str:
         if not value.startswith("postgresql+psycopg://"):
             raise ValueError("DATABASE_URL must use the postgresql+psycopg driver")
+        return value
+
+    @field_validator("support_whatsapp_number", mode="before")
+    @classmethod
+    def blank_support_number_is_unset(cls, value: object) -> object:
+        if isinstance(value, str) and not value.strip():
+            return None
         return value
 
     @field_validator("personal_email_domains")
