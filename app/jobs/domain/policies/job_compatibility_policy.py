@@ -10,8 +10,9 @@ Rules:
    empty requirement raises ``JobWithoutRequiredSkillsError`` instead of a score.
 4. A candidate is highlighted at 50% or more, compared on the exact ratio.
    Candidates below 50% stay in the ranking.
-5. Ranking: percentage descending, then ``candidate_id`` ascending, so the same input
-   always produces the same order.
+5. Ranking: percentage descending. Ties keep the order in which the candidates were
+   given, so the caller decides the tie-break (applicants, for example, arrive in
+   application order) and the same input always produces the same order.
 """
 
 from collections.abc import Iterable, Mapping
@@ -44,4 +45,5 @@ class JobCompatibilityPolicy:
             self.score(candidate_id, skill_ids)
             for candidate_id, skill_ids in skill_ids_by_candidate.items()
         ]
-        return sorted(scores, key=lambda score: (-score.percentage, score.candidate_id))
+        # sorted() is stable: equal percentages keep the caller's order.
+        return sorted(scores, key=lambda score: -score.percentage)

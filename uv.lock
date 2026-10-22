@@ -143,6 +143,9 @@ cognito-idp = [
 s3 = [
     { name = "mypy-boto3-s3" },
 ]
+sesv2 = [
+    { name = "mypy-boto3-sesv2" },
+]
 
 [[package]]
 name = "botocore"
@@ -671,6 +674,15 @@ wheels = [
 ]
 
 [[package]]
+name = "mypy-boto3-sesv2"
+version = "1.43.110"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/1a/ea/7c18bbb390a809c9d83283813d7562c4117cd13d39a3f6bcb3181b8ec67c/mypy_boto3_sesv2-1.43.110.tar.gz", hash = "sha256:72ac73bab29fc1bad5c185fdf505db6d5a5fd64b9d5e13f53e41457f43d840ff", size = 49850, upload-time = "2026-10-08T22:26:42.97Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d7/2b/06d3482009a7f51501910609d0a1c170dd4ad44e5e14d17a43aeffd833c4/mypy_boto3_sesv2-1.43.110-py3-none-any.whl", hash = "sha256:26ad1faf751aa0ef7c7e3ef65d171d9221b4b766f03d35460b7ffb4ddf780445", size = 55700, upload-time = "2026-10-08T22:26:40.447Z" },
+]
+
+[[package]]
 name = "mypy-extensions"
 version = "1.1.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1033,7 +1045,7 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "boto3-stubs", extra = ["cognito-idp", "s3"] },
+    { name = "boto3-stubs", extra = ["cognito-idp", "s3", "sesv2"] },
     { name = "conventional-pre-commit" },
     { name = "mypy" },
     { name = "pre-commit" },
@@ -1060,7 +1072,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "boto3-stubs", extras = ["cognito-idp", "s3"], specifier = ">=1.40,<2" },
+    { name = "boto3-stubs", extras = ["cognito-idp", "s3", "sesv2"], specifier = ">=1.40,<2" },
     { name = "conventional-pre-commit", specifier = ">=4.4.0" },
     { name = "mypy", specifier = ">=2.3.0" },
     { name = "pre-commit", specifier = ">=4.6.2" },

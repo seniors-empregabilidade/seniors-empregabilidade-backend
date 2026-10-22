@@ -6,7 +6,13 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
-from app.db.models import Application, Job, Notification
+from app.db.models import (
+    Application,
+    EmailDelivery,
+    EmailDeliveryStatus,
+    Job,
+    Notification,
+)
 from app.db.session import get_session_factory
 from tests.applications.conftest import (
     SUBMIT_TOKEN,
@@ -196,6 +202,12 @@ def test_applying_notifies_the_company_that_owns_the_job(
             "application_id": response.json()["id"],
             "job_id": str(submission_scenario.job_open_id),
         }
+        delivery = session.scalars(
+            select(EmailDelivery).where(
+                EmailDelivery.notification_id == notification.id
+            )
+        ).one()
+        assert delivery.status == EmailDeliveryStatus.PENDING
 
 
 def test_rejected_application_does_not_notify_the_company(

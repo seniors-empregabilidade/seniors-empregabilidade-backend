@@ -42,6 +42,7 @@ All paths start with `/api/v1`.
 | `GET /jobs/me` | `200`: every job of the calling company, newest first, with `application_count` |
 | `PATCH /jobs/{job_id}` | `200`: the job with its new title, description and skills |
 | `PATCH /jobs/{job_id}/status` | `200`: the job closed or reopened |
+| `GET /jobs/{job_id}/applications` | `200`: the job's applicants and automatic matches ranked by compatibility (US-19, US-20) |
 
 `POST /jobs` receives:
 
@@ -109,6 +110,67 @@ Reopening with a closing date before today is `422 closing_date_in_the_past`. A
 job reopened without a `published_at` gets one.
 
 Closing a job does not change its applications; they keep their status.
+
+## Applicants ranked by compatibility (US-19)
+
+`GET /jobs/{job_id}/applications` lists everyone who applied to the job, whatever
+the application status, with a header (`total_applicant_count`,
+`full_match_count`) and one row per applicant: `application_id`, `status`,
+`match_score`, `compatibility_percentage`, `is_highlighted`,
+`matched_skill_count`, `required_skill_count` and a `profile` limited to
+`candidate_id`, `full_name`, `city` and `state`.
+
+The ranking comes from `app.jobs.domain.policies.job_compatibility_policy`,
+comparing the job's skills (`job_skill`) with the applicant's résumé skills
+(`resume_skill`) by catalog id:
+
+- `compatibility_percentage` is matched required skills / required skills * 100,
+  rounded half up to two decimal places and serialized as a string (`"66.67"`).
+  Skills beyond the job's do not count; an applicant without a résumé scores
+  `"0.00"`.
+- `is_highlighted` is `true` from 50% up, compared on the exact ratio.
+- Rows are ordered by `compatibility_percentage` descending; equal percentages
+  keep the application order (oldest first). Highlighted applicants come first
+  and the ones below 50% follow them in the same list.
+- A job without required skills cannot be scored: its applicants keep the
+  application order (oldest first) with `compatibility_percentage: null`,
+  `is_highlighted: false` and zero counts. Published jobs always have skills.
+- `match_score` is the stored `application.match_score` column, which still has
+  no producer (see [APPLICATIONS.md](APPLICATIONS.md)); it no longer drives the
+  order.
+
+The percentage is computed on every request from the current job and résumé
+skills, unlike `matched_requirements`/`total_requirements`, which the application
+stores at submission time.
+
+## Origin: applications and automatic matches (US-20)
+
+The same list also shows professionals who did not apply but are compatible
+with the job, and every row carries an `origin`:
+
+- `application`: the professional applied, whatever the application status
+  (a withdrawn applicant is still an application).
+- `automatic_match`: the professional has not applied and the compatibility
+  engine highlights them (50% or more, `is_automatic_match` in
+  `app.jobs.domain.policies.automatic_match_policy`). Only candidates whose
+  account is `active` and whose `availability` is `available` are considered.
+  `application_id`, `status` and `match_score` are `null`.
+
+Both origins go through the same `JobCompatibilityPolicy` with the same inputs,
+so applying never changes `compatibility_percentage`, `is_highlighted` or the
+counts: two professionals with the same résumé skills get the same values
+whatever their origin. Rows are ranked together by percentage; on equal
+percentages applicants come first (oldest application first), then automatic
+matches by `candidate_id`. A job without required skills has no automatic
+matches.
+
+An automatic match exposes the same `profile` as an applicant (`candidate_id`,
+`full_name`, `city`, `state`); contact and identification data (email, phone,
+CPF, birth date) are never returned for either origin. Contacting a
+professional is a separate story (US-29).
+
+The header keeps `total_applicant_count` and `full_match_count` for
+applications only and adds `automatic_match_count`.
 
 ## Failures
 

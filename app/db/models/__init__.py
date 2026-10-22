@@ -7,12 +7,14 @@ from app.db.models.candidate import Candidate
 from app.db.models.certification import Certification
 from app.db.models.company import Company
 from app.db.models.education import Education
+from app.db.models.email_delivery import EmailDelivery
 from app.db.models.enums import (
     AccountStatus,
     ApplicationStatus,
     ApplicationType,
     AvailabilityStatus,
     CompanyStatus,
+    EmailDeliveryStatus,
     EmploymentStatus,
     JobOutcome,
     JobStatus,
@@ -28,6 +30,7 @@ from app.db.models.job_skill import JobSkill
 from app.db.models.language import Language
 from app.db.models.notification import Notification
 from app.db.models.resume import Resume
+from app.db.models.resume_guidance import ResumeGuidance
 from app.db.models.resume_skill import ResumeSkill
 from app.db.models.skill import Skill
 from app.db.models.training import Training
@@ -47,6 +50,8 @@ __all__ = [
     "Company",
     "CompanyStatus",
     "Education",
+    "EmailDelivery",
+    "EmailDeliveryStatus",
     "EmploymentStatus",
     "Event",
     "Experience",
@@ -57,6 +62,7 @@ __all__ = [
     "Language",
     "Notification",
     "Resume",
+    "ResumeGuidance",
     "ResumeSkill",
     "Skill",
     "SkillType",

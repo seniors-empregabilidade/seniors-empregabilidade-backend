@@ -66,6 +66,16 @@ class ProfileNotFoundError(ProblemException):
         )
 
 
+class ProfessionalNotFoundError(ProblemException):
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=404,
+            title="Not Found",
+            code="professional_not_found",
+            detail="The professional was not found.",
+        )
+
+
 class ExperienceNotFoundError(ProblemException):
     def __init__(self) -> None:
         super().__init__(

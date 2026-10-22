@@ -1,7 +1,15 @@
 from functools import lru_cache
-from typing import Literal
+from typing import Literal, Self
 
-from pydantic import AnyHttpUrl, Field, PositiveFloat, SecretStr, field_validator
+from pydantic import (
+    AnyHttpUrl,
+    Field,
+    PositiveFloat,
+    PositiveInt,
+    SecretStr,
+    field_validator,
+    model_validator,
+)
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DEFAULT_DATABASE_URL = (
@@ -61,6 +69,18 @@ class Settings(BaseSettings):
     s3_access_key_id: str | None = None
     s3_secret_access_key: SecretStr | None = None
 
+    # Notification e-mails. `log` records that a message was produced and sends
+    # nothing; `ses` needs a sender address verified in Amazon SES.
+    email_backend: Literal["log", "ses"] = "log"
+    email_sender_address: str = ""
+    email_region: str = "us-east-2"
+    # Public address of the web application, linked from every e-mail.
+    app_public_url: AnyHttpUrl = AnyHttpUrl("http://localhost:5173")
+    # Off by default so tests and one-off commands never start the loop.
+    email_dispatch_enabled: bool = False
+    email_dispatch_interval_seconds: PositiveFloat = 15.0
+    email_max_attempts: PositiveInt = 5
+
     # On in production, where CloudFront is in front and the socket address is
     # always the edge. Off locally, where the socket is the client.
     trust_proxy_headers: bool = False
@@ -100,6 +120,16 @@ class Settings(BaseSettings):
                 "PERSONAL_EMAIL_DOMAINS must include the database-blocked domains"
             )
         return value
+
+    @model_validator(mode="after")
+    def require_ses_sender(self) -> Self:
+        if self.email_backend == "ses" and not self.email_sender_address.strip():
+            raise ValueError("EMAIL_SENDER_ADDRESS is required when EMAIL_BACKEND=ses")
+        return self
+
+    @property
+    def app_public_url_value(self) -> str:
+        return str(self.app_public_url).rstrip("/")
 
     @property
     def cors_origin_values(self) -> list[str]:

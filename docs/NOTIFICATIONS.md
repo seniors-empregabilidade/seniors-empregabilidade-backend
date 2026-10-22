@@ -1,13 +1,13 @@
-# In-app notifications (US-26-T01)
+# Notifications (US-26-T01, US-26-T02)
 
 This module lets any authenticated user read the notifications addressed to
 them and mark them as read, and gives event producers one entry point to
 create notifications. It reuses the existing `notification` table from the
 initial schema; migration `5d2f7a9c1e34` only adds the listing index.
+Selected events also send an e-mail copy (see [E-mail copies](#e-mail-copies)).
 
-US-26 is marked as provisional in the backlog because of its e-mail half
-(US-26-T02). This task covers only in-app notifications, which do not depend
-on e-mail.
+US-26 is marked as provisional in the backlog because of its e-mail half. The
+in-app notifications never depend on e-mail.
 
 ## Endpoints
 
@@ -100,11 +100,89 @@ To add an event (US-29 contact, matches for companies, ...):
   sorting every notification of the user. `ix_notification_user_id_read` stays
   for the unread count.
 
+## E-mail copies
+
+`application_received` and `application_status_changed` also send an e-mail;
+`company_registration_rejected` stays in-app only. The list and the wording
+live in `app/notifications/domain/notification_email.py`.
+
+### Flow
+
+1. `notify_user` adds an `email_delivery` row with status `pending` in the
+   same transaction as the notification. A rollback discards both.
+2. After the commit, the dispatcher (`app/notifications/email_dispatcher.py`)
+   runs inside the API process every `EMAIL_DISPATCH_INTERVAL_SECONDS`. It
+   claims one due `pending` row at a time with `FOR UPDATE SKIP LOCKED`, sends
+   it and commits, so two dispatchers never send the same row.
+3. Success sets `sent` and `sent_at`. A failure stores the provider code in
+   `last_error`, keeps `pending` and waits 1, 2, 4... minutes (at most one
+   hour) before the next try. After `EMAIL_MAX_ATTEMPTS` failures the row
+   becomes `failed`. The notification itself is never changed, so an e-mail
+   failure never hides the in-app notification.
+
+A crash between sending and committing can repeat that one message: delivery is
+at least once.
+
+### Privacy
+
+- The text is generic: no job title, company, candidate, status or reason. It
+  says that something changed and links to `APP_PUBLIC_URL`, where the reader
+  must sign in to see anything private.
+- `email_delivery` stores no address; the recipient is read from `app_user`
+  when the message is sent, so an address change is honoured.
+- Logs carry only the event and the provider error code, never the recipient
+  or the content.
+
+### Configuration
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `EMAIL_BACKEND` | `log` | `log` sends nothing and records `email_logged`; `ses` sends through Amazon SES |
+| `EMAIL_SENDER_ADDRESS` | empty | Verified SES identity; required with `ses` |
+| `EMAIL_REGION` | `us-east-2` | SES region |
+| `APP_PUBLIC_URL` | `http://localhost:5173` | Web application linked from the e-mails |
+| `EMAIL_DISPATCH_ENABLED` | `false` | Starts the dispatcher with the API |
+| `EMAIL_DISPATCH_INTERVAL_SECONDS` | `15` | Pause between dispatcher rounds |
+| `EMAIL_MAX_ATTEMPTS` | `5` | Tries before a delivery becomes `failed` |
+
+Tests force `EMAIL_BACKEND=log` and `EMAIL_DISPATCH_ENABLED=false`, whatever
+the local `.env` says.
+
+### Current scope: simplified delivery
+
+The story is provisional and allows a simplified e-mail half, so this task
+delivers the delivery record, its statuses and the decoupling, while real
+sending in production stays **off**:
+
+- Production keeps the defaults (`EMAIL_BACKEND=log`,
+  `EMAIL_DISPATCH_ENABLED=false`). Deliveries stay `pending`, which is the
+  truthful status: nothing was sent.
+- `log` is for local development and tests only. **Never enable the
+  dispatcher with `log` in production**: it would mark deliveries `sent`
+  although no message left the system.
+- Turning real e-mail on is a team decision and needs only the configuration
+  below; no code change.
+
+### Enabling SES in production
+
+Done outside this repository, by someone with AWS access:
+
+1. Verify the sender address or domain as an SES identity in `us-east-2`.
+2. Request SES production access; in the sandbox only verified recipients
+   receive messages.
+3. Allow `ses:SendEmail` for that identity on the instance role
+   (`seniors-empregabilidade-infra`).
+4. Set `EMAIL_BACKEND=ses`, `EMAIL_SENDER_ADDRESS`, `APP_PUBLIC_URL` and
+   `EMAIL_DISPATCH_ENABLED=true` in the `/seniors/api/config` parameter, then
+   redeploy.
+
+Until then, deliveries stay `pending`; the in-app notifications work either
+way.
+
 ## Known gaps (out of scope for this task)
 
-- E-mail delivery with `pending`/`sent`/`failed` status (US-26-T02). It will
-  hook into `notify_user`; an e-mail failure must not prevent the in-app
-  notification.
+- There is no endpoint exposing e-mail delivery status; it is only in the
+  database.
 - Producers for US-29 (contact) and company matches land with those stories.
 - A candidate's own withdrawal does not notify the company yet; it was not
   listed among the confirmed events.

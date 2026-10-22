@@ -31,7 +31,7 @@ def test_migrated_schema_contains_postgresql_domain_objects() -> None:
         "resume",
         "resume_skill",
     }
-    assert len(pg_inspector.get_enums()) == 12
+    assert len(pg_inspector.get_enums()) == 13
     assert any(
         check["name"] == "ck_company_cnpj_format"
         for check in inspector.get_check_constraints("company")

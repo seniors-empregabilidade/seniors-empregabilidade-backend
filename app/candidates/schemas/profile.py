@@ -71,6 +71,7 @@ class ProfessionalProfileResponse(BaseModel):
     education: list[EducationResponse]
     certifications: list[CertificationResponse]
     skills: list[SkillResponse]
+    missing_fields: list[str]
 
 
 class ProfessionalProfileUpdateRequest(BaseModel):

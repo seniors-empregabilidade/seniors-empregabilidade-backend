@@ -81,6 +81,12 @@ class TrainingMode(StrEnum):
     ONLINE = "online"
 
 
+class EmailDeliveryStatus(StrEnum):
+    PENDING = "pending"
+    SENT = "sent"
+    FAILED = "failed"
+
+
 def enum_type(enum: type[StrEnum], name: str) -> Enum:
     return Enum(
         enum, name=name, values_callable=lambda values: [v.value for v in values]

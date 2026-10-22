@@ -65,20 +65,20 @@ def test_rank_orders_by_percentage_and_keeps_low_scores() -> None:
     assert [score.candidate_id for score in ranking] == [
         CANDIDATE_A,
         CANDIDATE_C,
-        CANDIDATE_B,
         CANDIDATE_D,
+        CANDIDATE_B,
     ]
     assert [score.is_highlighted for score in ranking] == [True, False, False, False]
 
 
-def test_rank_breaks_ties_by_candidate_id() -> None:
+def test_rank_keeps_the_given_order_for_ties() -> None:
     ranking = JobCompatibilityPolicy([PYTHON]).rank(
         {CANDIDATE_C: [PYTHON], CANDIDATE_A: [PYTHON], CANDIDATE_B: [PYTHON]}
     )
     assert [score.candidate_id for score in ranking] == [
+        CANDIDATE_C,
         CANDIDATE_A,
         CANDIDATE_B,
-        CANDIDATE_C,
     ]
 
 
