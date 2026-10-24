@@ -17,6 +17,8 @@ from app.db.models import (
     AppUser,
     Candidate,
     Company,
+    EmailDelivery,
+    EmailDeliveryStatus,
     Job,
     JobSkill,
     Notification,
@@ -511,6 +513,10 @@ def test_status_change_notifies_the_candidate(
         update_status_scenario.under_review_application_id
     )
     assert notification.details["status"] == "in_selection_process"
+    delivery = database_session.scalars(
+        select(EmailDelivery).where(EmailDelivery.notification_id == notification.id)
+    ).one()
+    assert delivery.status == EmailDeliveryStatus.PENDING
 
 
 def test_rejection_notification_does_not_include_the_reason(

@@ -1,4 +1,5 @@
 from app.jobs.services.change_job_status import change_job_status
+from app.jobs.services.get_job_detail import JobDetail, get_job_detail
 from app.jobs.services.job_record import JobRecord
 from app.jobs.services.job_summary import JobSummary
 from app.jobs.services.list_company_jobs import list_company_jobs
@@ -9,9 +10,11 @@ from app.jobs.services.update_job import update_job
 
 __all__ = [
     "FoundJob",
+    "JobDetail",
     "JobRecord",
     "JobSummary",
     "change_job_status",
+    "get_job_detail",
     "is_open_at",
     "list_company_jobs",
     "publish_job",

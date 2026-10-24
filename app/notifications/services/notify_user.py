@@ -3,7 +3,8 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from app.db.models import Notification
+from app.db.models import EmailDelivery, Notification
+from app.notifications.domain.notification_email import sends_email
 from app.notifications.domain.notification_type import NotificationType
 
 
@@ -25,12 +26,17 @@ def notify_user(
     `details` is returned to the notified user as-is. Keep it to identifiers
     the client needs to build a link (for example `application_id`); never
     put personal data, documents or credentials in it.
+
+    Events listed in `notification_email` also queue an e-mail copy in the
+    same transaction. It is only sent after the commit, by the e-mail
+    dispatcher, so a provider failure never undoes the in-app notification.
     """
-    session.add(
-        Notification(
-            user_id=user_id,
-            type=type.value,
-            message=message,
-            details=details,
-        )
+    notification = Notification(
+        user_id=user_id,
+        type=type.value,
+        message=message,
+        details=details,
     )
+    session.add(notification)
+    if sends_email(type):
+        session.add(EmailDelivery(notification=notification))

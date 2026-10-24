@@ -11,6 +11,7 @@ from app.core.problem_details import PROBLEM_RESPONSE
 from app.db.session import get_session
 from app.jobs.schemas import (
     CreateJobRequest,
+    JobDetailResponse,
     JobResponse,
     JobSearchResultResponse,
     JobSummaryResponse,
@@ -26,6 +27,7 @@ from app.jobs.services import (
     JobRecord,
     JobSummary,
     change_job_status,
+    get_job_detail,
     list_company_jobs,
     publish_job,
     search_jobs,
@@ -145,6 +147,46 @@ def list_open_jobs(
 
 
 @router.get(
+    "/{job_id}",
+    response_model=JobDetailResponse,
+    responses={code: PROBLEM_RESPONSE for code in (404,)},
+)
+def read_job_detail(
+    job_id: UUID,
+    response: Response,
+    user: Annotated[CurrentUser, Depends(require_candidate)],
+    session: Annotated[Session, Depends(get_session)],
+) -> JobDetailResponse:
+    """Full job data plus the calling candidate's application state.
+
+    `is_applicable` is false for a job that is not open (closed, paused, expired
+    or past its closing date) or that the candidate already applied to.
+    """
+    response.headers["Cache-Control"] = "no-store"
+    detail = get_job_detail(session, job_id=job_id, candidate_id=user.id)
+    return JobDetailResponse(
+        id=detail.id,
+        title=detail.title,
+        description=detail.description,
+        company_id=detail.company_id,
+        company_name=detail.company_name,
+        skills=[
+            SkillResponse(id=skill.id, name=skill.name, type=skill.type)
+            for skill in detail.skills
+        ],
+        work_mode=detail.work_mode,
+        location=detail.location,
+        closing_date=detail.closing_date,
+        status=detail.status,
+        published_at=detail.published_at,
+        already_applied=detail.already_applied,
+        is_open=detail.is_open,
+        is_expired=detail.is_expired,
+        is_applicable=detail.is_applicable,
+    )
+
+
+@router.get(
     "/{job_id}/applications",
     response_model=JobApplicantsSummaryResponse,
     responses={code: PROBLEM_RESPONSE for code in (404,)},
@@ -155,11 +197,14 @@ def list_applicants(
     user: Annotated[CurrentUser, Depends(require_approved_company)],
     session: Annotated[Session, Depends(get_session)],
 ) -> JobApplicantsSummaryResponse:
-    """List candidates who applied to a company job, with skill-match data.
+    """List a company job's applicants and automatic matches, ranked by compatibility.
 
-    Returns aggregate header (total and full-match count) plus a per-applicant
-    list ordered by match (descending). Only the company that owns the job can
-    call this endpoint; a job from another company is returned as 404.
+    Returns an aggregate header (applicant, full-match and automatic-match counts)
+    plus one list ordered by compatibility percentage (descending). Each row has
+    an ``origin``: ``application`` for a professional who applied, or
+    ``automatic_match`` for a compatible profile (50% or more) that has not.
+    Only the company that owns the job can call this endpoint; a job from another
+    company is returned as 404.
     """
     response.headers["Cache-Control"] = "no-store"
     summary = list_job_applicants(session, job_id=job_id, company_id=user.id)
@@ -173,15 +218,19 @@ def _job_applicants_summary_response(
         job_id=summary.job_id,
         total_applicant_count=summary.total_applicant_count,
         full_match_count=summary.full_match_count,
+        automatic_match_count=summary.automatic_match_count,
         applicants=[_job_applicant_response(a) for a in summary.applicants],
     )
 
 
 def _job_applicant_response(applicant: JobApplicant) -> JobApplicantResponse:
     return JobApplicantResponse(
+        origin=applicant.origin,
         application_id=applicant.application_id,
         status=applicant.status,
         match_score=applicant.match_score,
+        compatibility_percentage=applicant.compatibility_percentage,
+        is_highlighted=applicant.is_highlighted,
         matched_skill_count=applicant.matched_skill_count,
         required_skill_count=applicant.required_skill_count,
         profile=ApplicantProfileResponse(

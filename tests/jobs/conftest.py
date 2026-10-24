@@ -82,6 +82,8 @@ class ManageJobsScenario:
     closed_job_id: UUID
     other_company_job_id: UUID
     skill_id: UUID
+    candidate_one_id: UUID
+    candidate_two_id: UUID
 
 
 @pytest.fixture
@@ -214,4 +216,6 @@ def manage_jobs_scenario(database_session: Session) -> ManageJobsScenario:
         closed_job_id=closed_job.id,
         other_company_job_id=other_company_job.id,
         skill_id=skill.id,
+        candidate_one_id=candidate_one.id,
+        candidate_two_id=candidate_two.id,
     )

@@ -108,6 +108,22 @@ def test_get_after_patch_returns_the_updated_profile(
     assert fetched.json()["city"] == "Curitiba"
 
 
+def test_profile_exposes_the_candidates_own_missing_fields(
+    client: TestClient, provider: FakeIdentityProvider
+) -> None:
+    add_candidate()
+
+    response = client.get(PROFILE_PATH, headers=AUTH)
+
+    assert response.status_code == 200
+    assert response.json()["missing_fields"] == [
+        "summary",
+        "experiences",
+        "education",
+        "skills",
+    ]
+
+
 def test_profile_requires_a_token(
     client: TestClient, provider: FakeIdentityProvider
 ) -> None:

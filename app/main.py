@@ -5,6 +5,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router
+from app.candidates.domain.certificate_document import MAX_DOCUMENT_BYTES
+from app.core.body_limit import RequestBodyLimitMiddleware
 from app.core.config import Settings, get_settings
 from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging
@@ -12,11 +14,20 @@ from app.core.middleware import REQUEST_ID_HEADER, RequestContextMiddleware
 from app.core.rate_limit import limiter
 from app.db.session import dispose_engine
 from app.health.router import router as health_router
+from app.notifications.email_dispatcher import build_email_dispatcher
 
 
 @asynccontextmanager
-async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+async def lifespan(application: FastAPI) -> AsyncIterator[None]:
+    settings: Settings = application.state.settings
+    dispatcher = (
+        build_email_dispatcher(settings) if settings.email_dispatch_enabled else None
+    )
+    if dispatcher is not None:
+        dispatcher.start()
     yield
+    if dispatcher is not None:
+        dispatcher.stop()
     dispose_engine()
 
 
@@ -37,8 +48,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         openapi_url="/openapi.json" if docs_enabled else None,
     )
     application.state.limiter = limiter
+    application.state.settings = resolved_settings
     register_exception_handlers(application)
 
+    # The largest body is one certificate upload plus its multipart framing.
+    application.add_middleware(
+        RequestBodyLimitMiddleware, max_bytes=MAX_DOCUMENT_BYTES + 64 * 1024
+    )
     application.add_middleware(RequestContextMiddleware)
     application.add_middleware(
         CORSMiddleware,

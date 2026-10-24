@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import delete, func, select
 
 from app.auth.dependencies import require_approved_company
-from app.db.models import AppUser, Company, Notification
+from app.db.models import AppUser, Company, EmailDelivery, Notification
 from app.db.models.enums import CompanyStatus, UserType
 from app.db.session import get_session_factory
 from app.identity.dependencies import get_identity_provider
@@ -166,6 +166,15 @@ def test_rejection_notifies_owner_and_cannot_be_overwritten(
         assert notifications[0].read is False
         # Free text written by the administrator stays out of `details`.
         assert notifications[0].details == {"company_id": str(company_id)}
+        # A rejected registration stays in-app only: no e-mail is queued.
+        assert (
+            session.scalar(
+                select(EmailDelivery).where(
+                    EmailDelivery.notification_id == notifications[0].id
+                )
+            )
+            is None
+        )
 
 
 @pytest.mark.parametrize(

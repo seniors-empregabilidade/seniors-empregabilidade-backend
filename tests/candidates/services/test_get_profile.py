@@ -72,6 +72,12 @@ def test_profile_without_a_resume_returns_empty_collections(
     assert profile.experiences == ()
     assert profile.education == ()
     assert profile.skills == ()
+    assert profile.missing_fields == (
+        "summary",
+        "experiences",
+        "education",
+        "skills",
+    )
 
 
 def test_profile_includes_resume_experiences_education_and_skills(
@@ -119,6 +125,7 @@ def test_profile_includes_resume_experiences_education_and_skills(
     assert len(profile.education) == 1
     assert profile.education[0].degree == "MBA em Gestão Empresarial"
     assert [item.name for item in profile.skills] == [skill.name]
+    assert profile.missing_fields == ()
 
 
 def test_unknown_user_raises_profile_not_found(database_session: Session) -> None:

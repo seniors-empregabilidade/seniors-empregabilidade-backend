@@ -1,11 +1,12 @@
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.candidates.exceptions import SkillAlreadyAddedError, SkillNotFoundError
-from app.candidates.schemas.skill_link import SkillLinkRequest
+from app.candidates.schemas.skill_link import SkillLinkRequest, SkillSelectionRequest
 from app.candidates.services.resumes import get_or_create_resume
+from app.db.models.candidate import Candidate
 from app.db.models.resume import Resume
 from app.db.models.resume_skill import ResumeSkill
 from app.db.models.skill import Skill
@@ -52,6 +53,42 @@ def remove_skill(user_id: UUID, skill_id: UUID, *, session: Session) -> None:
 
         session.delete(link)
         session.commit()
+    except Exception:
+        session.rollback()
+        raise
+
+
+def replace_skills(
+    user_id: UUID, request: SkillSelectionRequest, *, session: Session
+) -> list[CatalogSkill]:
+    """Keep exactly the requested catalog skills on the résumé.
+
+    Every identifier is checked before a link is removed, so an unknown skill leaves
+    the résumé as it was instead of half replaced.
+    """
+    try:
+        wanted = set(request.skill_ids)
+        skills = list(
+            session.scalars(
+                select(Skill).where(Skill.id.in_(wanted)).order_by(Skill.name)
+            )
+        )
+        if len(skills) != len(wanted):
+            raise SkillNotFoundError()
+
+        # Lock the candidate so concurrent first replacements cannot both create a résumé.
+        session.scalar(
+            select(Candidate.id).where(Candidate.id == user_id).with_for_update()
+        )
+        resume = get_or_create_resume(user_id, session)
+        session.execute(delete(ResumeSkill).where(ResumeSkill.resume_id == resume.id))
+        session.add_all(
+            ResumeSkill(resume_id=resume.id, skill_id=skill.id) for skill in skills
+        )
+        session.flush()
+        catalog_skills = [CatalogSkill.of(skill) for skill in skills]
+        session.commit()
+        return catalog_skills
     except Exception:
         session.rollback()
         raise
