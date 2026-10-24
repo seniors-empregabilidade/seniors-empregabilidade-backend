@@ -4,6 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.orm import Session
 
+from app.account_management.schemas.account_detail_response import AccountDetailResponse
 from app.account_management.schemas.account_list_response import AccountListResponse
 from app.account_management.schemas.account_status_request import AccountStatusRequest
 from app.account_management.schemas.account_status_response import (
@@ -12,6 +13,7 @@ from app.account_management.schemas.account_status_response import (
 from app.account_management.services.change_account_status import (
     change_account_status,
 )
+from app.account_management.services.get_account import get_account
 from app.account_management.services.list_accounts import list_accounts
 from app.auth.dependencies import require_administrator
 from app.auth.schemas.current_user import CurrentUser
@@ -69,6 +71,21 @@ def read_accounts(
         limit=limit,
         offset=offset,
     )
+
+
+@router.get(
+    "/{account_id}",
+    response_model=AccountDetailResponse,
+    responses={404: PROBLEM_RESPONSE},
+)
+def read_account(
+    account_id: UUID,
+    response: Response,
+    user: Annotated[CurrentUser, Depends(require_administrator)],
+    session: Annotated[Session, Depends(get_session)],
+) -> AccountDetailResponse:
+    response.headers["Cache-Control"] = "no-store"
+    return get_account(session, account_id)
 
 
 @router.patch(
