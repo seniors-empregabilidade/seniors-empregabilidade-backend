@@ -50,7 +50,13 @@ def test_period_starting_after_it_ends_is_rejected(client: TestClient) -> None:
 @pytest.mark.usefixtures("as_administrator")
 @pytest.mark.parametrize(
     "parameter",
-    ["candidate_availability", "company_status", "job_status", "application_status"],
+    [
+        "account_status",
+        "candidate_availability",
+        "company_status",
+        "job_status",
+        "application_status",
+    ],
 )
 def test_unknown_status_value_is_rejected(client: TestClient, parameter: str) -> None:
     response = client.get(INDICATORS_PATH, params={parameter: "not_a_status"})

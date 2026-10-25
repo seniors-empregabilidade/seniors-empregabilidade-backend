@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import require_administrator
+from app.db.models import JobSkill, ResumeSkill, Skill
 from app.db.models.app_user import AppUser
 from app.db.models.application import Application
 from app.db.models.candidate import Candidate
@@ -16,7 +17,9 @@ from app.db.models.enums import (
     ApplicationStatus,
     AvailabilityStatus,
     CompanyStatus,
+    EmploymentStatus,
     JobStatus,
+    SkillType,
     UserType,
     WorkMode,
 )
@@ -29,11 +32,12 @@ from app.indicators.services.platform_indicators import get_platform_indicators
 INDICATORS_PATH = "/api/v1/indicators"
 IN_PERIOD = datetime(2001, 1, 15, 12, tzinfo=UTC)
 BEFORE_PERIOD = datetime(2000, 12, 31, 12, tzinfo=UTC)
-LAST_SECOND_OF_PERIOD = datetime(2001, 1, 31, 23, 59, 59, tzinfo=UTC)
-FIRST_SECOND_AFTER_PERIOD = datetime(2001, 2, 1, 0, 0, 0, tzinfo=UTC)
+LAST_SECOND_OF_PERIOD = datetime(2001, 2, 1, 1, 59, 59, 999999, tzinfo=UTC)
+FIRST_SECOND_AFTER_PERIOD = datetime(2001, 2, 1, 2, 0, 0, tzinfo=UTC)
 PERIOD = IndicatorFilters(start_date=date(2001, 1, 1), end_date=date(2001, 1, 31))
 
 _sequence = count(1)
+pytestmark = pytest.mark.integration
 
 
 def _user(session: Session, user_type: UserType, created_at: datetime) -> AppUser:
@@ -83,16 +87,16 @@ def _company(session: Session, status: CompanyStatus) -> Company:
     return company
 
 
-def _resume(session: Session, candidate: Candidate, completion: int) -> None:
-    session.add(
-        Resume(
-            candidate_id=candidate.id,
-            completion_percentage=completion,
-            created_at=IN_PERIOD,
-            updated_at=IN_PERIOD,
-        )
+def _resume(session: Session, candidate: Candidate, completion: int) -> Resume:
+    resume = Resume(
+        candidate_id=candidate.id,
+        completion_percentage=completion,
+        created_at=IN_PERIOD,
+        updated_at=IN_PERIOD,
     )
+    session.add(resume)
     session.flush()
+    return resume
 
 
 def _job(session: Session, company: Company, status: JobStatus) -> Job:
@@ -101,7 +105,7 @@ def _job(session: Session, company: Company, status: JobStatus) -> Job:
         title="Indicators Job",
         description="Indicators job description",
         work_mode=WorkMode.REMOTE,
-        closing_date=date(2001, 2, 28),
+        closing_date=date(2099, 2, 28),
         status=status,
         created_at=IN_PERIOD,
         updated_at=IN_PERIOD,
@@ -144,10 +148,31 @@ def _seed_scenario(session: Session) -> None:
     draft = _job(session, approved, JobStatus.DRAFT)
 
     c_hired = _candidate(session)
-    _resume(session, c_hired, 100)
+    hired_resume = _resume(session, c_hired, 100)
+    hired_resume.employment_status = EmploymentStatus.EMPLOYED
     c_partial = _candidate(session)
-    _resume(session, c_partial, 50)
+    partial_resume = _resume(session, c_partial, 50)
+    partial_resume.employment_status = EmploymentStatus.UNEMPLOYED
     c_bare = _candidate(session, availability=AvailabilityStatus.UNAVAILABLE)
+
+    skills = [
+        Skill(
+            name=f"Indicator skill {n}",
+            normalized_name=f"indicator skill {n}",
+            type=SkillType.HARD,
+        )
+        for n in range(2)
+    ]
+    session.add_all(skills)
+    session.flush()
+    session.add_all(
+        [
+            *[JobSkill(job_id=published.id, skill_id=skill.id) for skill in skills],
+            ResumeSkill(resume_id=hired_resume.id, skill_id=skills[0].id),
+            ResumeSkill(resume_id=partial_resume.id, skill_id=skills[1].id),
+        ]
+    )
+    session.flush()
 
     _application(session, c_hired, published, ApplicationStatus.HIRED, 90)
     _application(session, c_partial, published, ApplicationStatus.APPLIED, 80)
@@ -175,8 +200,9 @@ def test_segments_count_candidates_without_placement_and_incomplete_resumes(
 ) -> None:
     indicators = get_platform_indicators(seeded, PERIOD)
 
-    assert indicators.segments.candidates_without_placement == 2
-    assert indicators.segments.incomplete_resumes == 2
+    assert indicators.segments.candidates_without_placement == 1
+    assert indicators.segments.candidates_with_unknown_employment == 1
+    assert indicators.segments.incomplete_resumes == 3
 
 
 def test_records_before_the_period_are_ignored(seeded: Session) -> None:
@@ -185,7 +211,7 @@ def test_records_before_the_period_are_ignored(seeded: Session) -> None:
     indicators = get_platform_indicators(seeded, PERIOD)
 
     assert indicators.totals.candidates == 3
-    assert indicators.segments.incomplete_resumes == 2
+    assert indicators.segments.incomplete_resumes == 3
 
 
 def test_period_bounds_include_the_last_day_and_exclude_the_next(
@@ -217,7 +243,7 @@ def test_job_status_filter_only_restricts_jobs(seeded: Session) -> None:
     assert indicators.totals.applications == 3
 
 
-def test_application_status_filter_restricts_applications_and_matches(
+def test_application_status_filter_only_restricts_applications(
     seeded: Session,
 ) -> None:
     filters = replace(PERIOD, application_status=ApplicationStatus.HIRED)
@@ -225,7 +251,7 @@ def test_application_status_filter_restricts_applications_and_matches(
     indicators = get_platform_indicators(seeded, filters)
 
     assert indicators.totals.applications == 1
-    assert indicators.totals.matches == 1
+    assert indicators.totals.matches == 2
 
 
 def test_application_status_filter_does_not_change_placement(seeded: Session) -> None:
@@ -233,7 +259,7 @@ def test_application_status_filter_does_not_change_placement(seeded: Session) ->
 
     indicators = get_platform_indicators(seeded, filters)
 
-    assert indicators.segments.candidates_without_placement == 2
+    assert indicators.segments.candidates_without_placement == 1
 
 
 def test_availability_filter_restricts_candidates_and_their_segments(
@@ -244,7 +270,7 @@ def test_availability_filter_restricts_candidates_and_their_segments(
     indicators = get_platform_indicators(seeded, filters)
 
     assert indicators.totals.candidates == 1
-    assert indicators.segments.candidates_without_placement == 1
+    assert indicators.segments.candidates_without_placement == 0
     assert indicators.segments.incomplete_resumes == 1
 
 
@@ -280,6 +306,7 @@ def test_endpoint_serializes_the_indicators(
         "matches": 2,
     }
     assert body["segments"] == {
-        "candidates_without_placement": 2,
-        "incomplete_resumes": 2,
+        "candidates_without_placement": 1,
+        "candidates_with_unknown_employment": 1,
+        "incomplete_resumes": 3,
     }

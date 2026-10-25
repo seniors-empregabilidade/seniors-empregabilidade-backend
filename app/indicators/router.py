@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.auth.dependencies import require_administrator
 from app.core.problem_details import PROBLEM_RESPONSE
 from app.db.models.enums import (
+    AccountStatus,
     ApplicationStatus,
     AvailabilityStatus,
     CompanyStatus,
@@ -31,32 +32,39 @@ def read_platform_indicators(
     response: Response,
     start_date: Annotated[
         date | None,
-        Query(description="First day of the period (UTC, inclusive)."),
+        Query(description="First day of the period (America/Sao_Paulo, inclusive)."),
     ] = None,
     end_date: Annotated[
         date | None,
-        Query(description="Last day of the period (UTC, inclusive)."),
+        Query(description="Last day of the period (America/Sao_Paulo, inclusive)."),
+    ] = None,
+    account_status: Annotated[
+        AccountStatus | None,
+        Query(description="Restricts candidate and company accounts and live matches."),
     ] = None,
     candidate_availability: Annotated[
         AvailabilityStatus | None,
-        Query(description="Restricts candidate-based indicators."),
+        Query(description="Restricts candidate-based indicators and live matches."),
     ] = None,
     company_status: Annotated[
         CompanyStatus | None,
-        Query(description="Restricts the company count."),
+        Query(description="Restricts the company count and live matches."),
     ] = None,
     job_status: Annotated[
         JobStatus | None,
-        Query(description="Restricts the job count."),
+        Query(description="Restricts the job count and live matches."),
     ] = None,
     application_status: Annotated[
         ApplicationStatus | None,
-        Query(description="Restricts the application and match counts."),
+        Query(
+            description="Restricts applications; potential matches need no application."
+        ),
     ] = None,
 ) -> PlatformIndicators:
     filters = IndicatorFilters(
         start_date=start_date,
         end_date=end_date,
+        account_status=account_status,
         candidate_availability=candidate_availability,
         company_status=company_status,
         job_status=job_status,

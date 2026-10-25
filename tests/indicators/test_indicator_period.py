@@ -13,7 +13,7 @@ from app.indicators.services.platform_indicators import (
 def test_period_with_only_start_date_has_no_upper_bound() -> None:
     period = _period_of(IndicatorFilters(start_date=date(2001, 2, 1)))
 
-    assert period.start == datetime(2001, 2, 1, tzinfo=UTC)
+    assert period.start == datetime(2001, 2, 1, 2, tzinfo=UTC)
     assert period.end is None
 
 
@@ -21,7 +21,7 @@ def test_period_with_only_end_date_has_no_lower_bound() -> None:
     period = _period_of(IndicatorFilters(end_date=date(2001, 1, 31)))
 
     assert period.start is None
-    assert period.end == datetime(2001, 2, 1, tzinfo=UTC)
+    assert period.end == datetime(2001, 2, 1, 1, 59, 59, 999999, tzinfo=UTC)
 
 
 def test_open_period_adds_no_conditions() -> None:

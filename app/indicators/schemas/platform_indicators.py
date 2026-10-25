@@ -1,8 +1,9 @@
 from datetime import date
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.db.models.enums import (
+    AccountStatus,
     ApplicationStatus,
     AvailabilityStatus,
     CompanyStatus,
@@ -15,6 +16,7 @@ class AppliedFilters(BaseModel):
 
     start_date: date | None
     end_date: date | None
+    account_status: AccountStatus | None
     candidate_availability: AvailabilityStatus | None
     company_status: CompanyStatus | None
     job_status: JobStatus | None
@@ -24,18 +26,19 @@ class AppliedFilters(BaseModel):
 class IndicatorTotals(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    candidates: int
-    companies: int
-    jobs: int
-    applications: int
-    matches: int
+    candidates: int = Field(ge=0)
+    companies: int = Field(ge=0)
+    jobs: int = Field(ge=0)
+    applications: int = Field(ge=0)
+    matches: int = Field(ge=0)
 
 
 class IndicatorSegments(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    candidates_without_placement: int
-    incomplete_resumes: int
+    candidates_without_placement: int = Field(ge=0)
+    candidates_with_unknown_employment: int = Field(ge=0)
+    incomplete_resumes: int = Field(ge=0)
 
 
 class PlatformIndicators(BaseModel):
