@@ -156,6 +156,7 @@ def test_candidate_detail_fills_the_registration_modal(
     assert response.headers["cache-control"] == "no-store"
     body = response.json()
     assert set(body) == {
+        "missing_fields",
         "id",
         "user_type",
         "email",
@@ -381,6 +382,7 @@ def test_summaries_expose_only_what_an_administrator_needs(
     assert company["company_status"] == "pending"
     assert company["completion_percentage"] is None
     assert set(candidate) == {
+        "missing_fields",
         "id",
         "user_type",
         "email",
