@@ -16,6 +16,7 @@ from app.db.models import (
     JobSkill,
     Resume,
     ResumeSkill,
+    Skill,
 )
 from app.db.models.enums import AccountStatus, ApplicationStatus, AvailabilityStatus
 from app.jobs.domain.candidate_origin import CandidateOrigin
@@ -40,6 +41,15 @@ class ApplicantProfile:
 
 
 @dataclass(frozen=True, slots=True)
+class CompatibilitySkill:
+    """A required skill of the job, named so the company sees why a score is what
+    it is (US-19)."""
+
+    id: UUID
+    name: str
+
+
+@dataclass(frozen=True, slots=True)
 class JobApplicant:
     """One professional in a job's list: an applicant or an automatic match.
 
@@ -56,6 +66,8 @@ class JobApplicant:
     is_highlighted: bool
     matched_skill_count: int
     required_skill_count: int
+    matched_skills: tuple[CompatibilitySkill, ...]
+    missing_skills: tuple[CompatibilitySkill, ...]
     profile: ApplicantProfile
 
     @property
@@ -164,6 +176,7 @@ def _ranked_list(
     The policy keeps the given order for equal percentages, so applicants (in
     application order) are given before automatic matches (by ``candidate_id``).
     """
+    skill_names = _skill_names(session, skill_ids=required_skill_ids)
     applicant_rows_by_candidate = {row.candidate_id: row for row in applicant_rows}
     match_candidate_ids = _automatic_match_candidate_ids(
         session, job_id=job_id, required_skill_ids=required_skill_ids
@@ -192,9 +205,13 @@ def _ranked_list(
         ],
     )
     return [
-        _scored_applicant(applicant_rows_by_candidate[score.candidate_id], score)
+        _scored_applicant(
+            applicant_rows_by_candidate[score.candidate_id], score, skill_names
+        )
         if score.candidate_id in applicant_rows_by_candidate
-        else _automatic_match(match_rows_by_candidate[score.candidate_id], score)
+        else _automatic_match(
+            match_rows_by_candidate[score.candidate_id], score, skill_names
+        )
         for score in listed
     ]
 
@@ -245,7 +262,24 @@ def _profile_rows_by_candidate(
     return {row.candidate_id: row for row in rows}
 
 
-def _scored_applicant(row: Row[Any], score: CompatibilityScore) -> JobApplicant:
+def _skill_names(session: Session, *, skill_ids: frozenset[UUID]) -> dict[UUID, str]:
+    rows = session.execute(
+        select(Skill.id, Skill.name).where(Skill.id.in_(skill_ids))
+    ).all()
+    return {row.id: row.name for row in rows}
+
+
+def _named(
+    skill_ids: frozenset[UUID], skill_names: dict[UUID, str]
+) -> tuple[CompatibilitySkill, ...]:
+    """Skills ordered by name, then id, so the list reads the same every time."""
+    skills = [CompatibilitySkill(id=id_, name=skill_names[id_]) for id_ in skill_ids]
+    return tuple(sorted(skills, key=lambda skill: (skill.name, str(skill.id))))
+
+
+def _scored_applicant(
+    row: Row[Any], score: CompatibilityScore, skill_names: dict[UUID, str]
+) -> JobApplicant:
     return JobApplicant(
         origin=CandidateOrigin.APPLICATION,
         application_id=row.application_id,
@@ -255,11 +289,15 @@ def _scored_applicant(row: Row[Any], score: CompatibilityScore) -> JobApplicant:
         is_highlighted=score.is_highlighted,
         matched_skill_count=score.matched_count,
         required_skill_count=score.required_count,
+        matched_skills=_named(score.matched_skill_ids, skill_names),
+        missing_skills=_named(score.missing_skill_ids, skill_names),
         profile=_profile(row),
     )
 
 
-def _automatic_match(row: Row[Any], score: CompatibilityScore) -> JobApplicant:
+def _automatic_match(
+    row: Row[Any], score: CompatibilityScore, skill_names: dict[UUID, str]
+) -> JobApplicant:
     return JobApplicant(
         origin=CandidateOrigin.AUTOMATIC_MATCH,
         application_id=None,
@@ -269,6 +307,8 @@ def _automatic_match(row: Row[Any], score: CompatibilityScore) -> JobApplicant:
         is_highlighted=score.is_highlighted,
         matched_skill_count=score.matched_count,
         required_skill_count=score.required_count,
+        matched_skills=_named(score.matched_skill_ids, skill_names),
+        missing_skills=_named(score.missing_skill_ids, skill_names),
         profile=_profile(row),
     )
 
@@ -283,6 +323,8 @@ def _unscored_applicant(row: Row[Any]) -> JobApplicant:
         is_highlighted=False,
         matched_skill_count=0,
         required_skill_count=0,
+        matched_skills=(),
+        missing_skills=(),
         profile=_profile(row),
     )
 

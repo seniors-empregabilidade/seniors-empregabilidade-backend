@@ -20,6 +20,7 @@ from app.jobs.schemas import (
 )
 from app.jobs.schemas.job_applicants_response import (
     ApplicantProfileResponse,
+    CompatibilitySkillResponse,
     JobApplicantResponse,
     JobApplicantsSummaryResponse,
 )
@@ -233,6 +234,14 @@ def _job_applicant_response(applicant: JobApplicant) -> JobApplicantResponse:
         is_highlighted=applicant.is_highlighted,
         matched_skill_count=applicant.matched_skill_count,
         required_skill_count=applicant.required_skill_count,
+        matched_skills=[
+            CompatibilitySkillResponse(id=skill.id, name=skill.name)
+            for skill in applicant.matched_skills
+        ],
+        missing_skills=[
+            CompatibilitySkillResponse(id=skill.id, name=skill.name)
+            for skill in applicant.missing_skills
+        ],
         profile=ApplicantProfileResponse(
             candidate_id=applicant.profile.candidate_id,
             full_name=applicant.profile.full_name,

@@ -18,8 +18,12 @@ Both routes require `require_administrator`. A missing or invalid token answers
 1. `GET /api/v1/admin/accounts` returns one page of accounts and the total
    number of accounts matching the filters, newest first. `total` counts every
    match, not the page, so the client can tell when it has reached the end.
-2. `PATCH /api/v1/admin/accounts/{account_id}/status` sets that account to
-   `active` or `blocked` and returns `{id, account_status}`.
+2. `GET /api/v1/admin/accounts/{account_id}` returns the registration shown in
+   the management modal. An unknown id and an administrator id both answer
+   `404 account_not_found`.
+3. `PATCH /api/v1/admin/accounts/{account_id}/status` sets that account to
+   `active` or `blocked` and returns `{id, account_status}`. The modal uses
+   `blocked` to block and `active` to reactivate; both require `reason`.
 
 ## Filters
 
@@ -56,6 +60,35 @@ Each item:
 | `company_status` | The company's approval situation; `null` for a candidate. |
 | `completion_percentage` | The candidate's résumé completion, `0` when they have no résumé; `null` for a company. |
 | `created_at` | When the account was created. |
+
+## Registration detail
+
+`GET /api/v1/admin/accounts/{account_id}` fills the management modal. It does
+not return the CPF, phone, birth date, salary, street address, CNAE, LinkedIn,
+terms acceptance, or any stored justification. A company has no résumé, so
+`summary` is `null`, `completion_percentage` and `application_count` are
+`null`, and the three lists are empty. A candidate has no company profile, so
+the company fields below are `null`.
+
+| Field | Meaning |
+| --- | --- |
+| `id`, `user_type`, `email`, `display_name`, `account_status`, `company_status`, `completion_percentage`, `created_at` | Same meaning as a list item. |
+| `application_count` | Applications the candidate has submitted. `null` for a company. |
+| `summary` | The résumé summary. `null` when there is no résumé, or the account is a company. |
+| `experiences` | `{id, role, company_name, start_date, end_date}`, newest start date first. `end_date` is `null` when the role is current. |
+| `education` | `{id, institution, degree, field, start_date, end_date}`, newest start date first. |
+| `skills` | `{id, name}`, ordered by name. |
+| `legal_name` | Company legal name. `null` for a candidate. |
+| `trade_name` | Company trade name. `null` when unset or the account is a candidate. `display_name` prefers this over `legal_name`. |
+| `cnpj` | Company CNPJ. `null` for a candidate. |
+| `corporate_email` | Company corporate email. `null` for a candidate. |
+| `city`, `state` | City and state code from the company address. `null` when there is no address, or the account is a candidate. |
+| `industry`, `company_size` | Company industry and size. `null` when unset or the account is a candidate. |
+| `published_job_count` | Jobs whose status is `published`. Draft, paused, expired and closed jobs are left out. `null` for a candidate. |
+
+The modal blocks with `PATCH .../status` and `{"status": "blocked", "reason": "..."}`.
+It reactivates with `{"status": "active", "reason": "..."}`. Which action to
+offer follows `account_status` from this response.
 
 ## Status change
 
@@ -134,7 +167,8 @@ uv run uvicorn app.main:app --reload --no-access-log
 ```
 
 Open `/docs`, authorize with an administrator access token, then call
-`GET /api/v1/admin/accounts` and
+`GET /api/v1/admin/accounts`,
+`GET /api/v1/admin/accounts/{account_id}`, and
 `PATCH /api/v1/admin/accounts/{account_id}/status`.
 
 For automated checks, set `RUN_DATABASE_INTEGRATION_TESTS=1` against an

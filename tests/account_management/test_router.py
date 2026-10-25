@@ -13,7 +13,8 @@ from app.identity.dependencies import get_identity_provider
 from tests.identity.fakes import FakeIdentityProvider
 
 LIST_PATH = "/api/v1/admin/accounts"
-STATUS_PATH = f"/api/v1/admin/accounts/{uuid4()}/status"
+DETAIL_PATH = f"/api/v1/admin/accounts/{uuid4()}"
+STATUS_PATH = f"{DETAIL_PATH}/status"
 VALID_BODY = {"status": "blocked", "reason": "Synthetic justification."}
 
 
@@ -36,7 +37,8 @@ def administrator_client(
 
 
 @pytest.mark.parametrize(
-    ("method", "path"), [("GET", LIST_PATH), ("PATCH", STATUS_PATH)]
+    ("method", "path"),
+    [("GET", LIST_PATH), ("GET", DETAIL_PATH), ("PATCH", STATUS_PATH)],
 )
 def test_requests_without_a_token_are_rejected(
     application: FastAPI, client: TestClient, method: str, path: str
@@ -51,7 +53,8 @@ def test_requests_without_a_token_are_rejected(
 
 @pytest.mark.parametrize("user_type", [UserType.CANDIDATE, UserType.COMPANY])
 @pytest.mark.parametrize(
-    ("method", "path"), [("GET", LIST_PATH), ("PATCH", STATUS_PATH)]
+    ("method", "path"),
+    [("GET", LIST_PATH), ("GET", DETAIL_PATH), ("PATCH", STATUS_PATH)],
 )
 def test_only_administrators_can_manage_accounts(
     application: FastAPI,
@@ -136,12 +139,17 @@ def test_invalid_status_changes_are_rejected_before_any_change(
     assert list(response.json()["errors"]) == [field]
 
 
+@pytest.mark.parametrize(
+    ("method", "path"),
+    [
+        ("GET", "/api/v1/admin/accounts/not-a-uuid"),
+        ("PATCH", "/api/v1/admin/accounts/not-a-uuid/status"),
+    ],
+)
 def test_a_malformed_account_id_is_a_validation_error(
-    administrator_client: TestClient,
+    administrator_client: TestClient, method: str, path: str
 ) -> None:
-    response = administrator_client.patch(
-        "/api/v1/admin/accounts/not-a-uuid/status", json=VALID_BODY
-    )
+    response = administrator_client.request(method, path, json=VALID_BODY)
 
     assert response.status_code == 422
     assert response.json()["code"] == "validation_error"

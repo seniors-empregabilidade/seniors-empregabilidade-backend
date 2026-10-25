@@ -335,6 +335,40 @@ def test_job_without_required_skills_lists_applicants_without_a_score(
     assert applicant["is_highlighted"] is False
     assert applicant["matched_skill_count"] == 0
     assert applicant["required_skill_count"] == 0
+    assert applicant["matched_skills"] == []
+    assert applicant["missing_skills"] == []
+
+
+def test_each_applicant_shows_which_skills_matched_and_which_are_missing(
+    manage_jobs_client: TestClient,
+    database_session: Session,
+    manage_jobs_scenario: ManageJobsScenario,
+) -> None:
+    extra_skill_ids = add_job_skills(
+        database_session, job_id=manage_jobs_scenario.open_job_id, count=2
+    )
+    give_resume_skills(
+        database_session,
+        candidate_id=manage_jobs_scenario.candidate_one_id,
+        skill_ids=[manage_jobs_scenario.skill_id, extra_skill_ids[1]],
+    )
+
+    applicants = list_applicants(manage_jobs_client, manage_jobs_scenario.open_job_id)
+
+    [applicant] = [
+        row
+        for row in applicants
+        if row["profile"]["candidate_id"] == str(manage_jobs_scenario.candidate_one_id)
+    ]
+    assert applicant["matched_skills"] == [
+        {"id": str(extra_skill_ids[1]), "name": "Manage Jobs Extra Skill 1"},
+        {"id": str(manage_jobs_scenario.skill_id), "name": "Manage Jobs Python"},
+    ]
+    assert applicant["missing_skills"] == [
+        {"id": str(extra_skill_ids[0]), "name": "Manage Jobs Extra Skill 0"},
+    ]
+    assert applicant["matched_skill_count"] == len(applicant["matched_skills"])
+    assert applicant["required_skill_count"] == 3
 
 
 @pytest.mark.parametrize("earlier", ["candidate_one_id", "candidate_two_id"])
