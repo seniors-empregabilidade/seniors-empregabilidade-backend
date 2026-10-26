@@ -27,8 +27,13 @@ domain.
    `under_review` or `in_selection_process`) to `withdrawn` and stamps
    `closed_at`. It is intentionally irreversible: there is no endpoint to
    undo a withdrawal.
+4. `GET /api/v1/applications/{application_id}/profile` requires an approved
+   company that owns the application's job. It returns the professional
+   summary, skills, experience, education and certification metadata without
+   age, contact details or certificate documents.
+   An application owned by another company returns `404`.
 
-All three endpoints send `Cache-Control: no-store`, matching the rest of the
+All four endpoints send `Cache-Control: no-store`, matching the rest of the
 identity surface.
 
 ## Decisions
@@ -96,8 +101,8 @@ identity surface.
   moment an application became terminal. It exists because `updated_at` has no
   `onupdate` trigger in this schema and therefore cannot substitute as a
   closing timestamp. Any future transition into a terminal status (hired,
-  not_selected, expired) should set this column too; today only the candidate
-  withdrawal endpoint does.
+  not_selected, expired) should set this column too. Company selection and
+  rejection actions set it for `hired` and `not_selected`.
 - **Ownership check returns `404`, not `403`.** Looking up the application by
   `id` filtered by the caller's `candidate_id` in the same query means a
   request for someone else's application matches no row: it is
@@ -122,24 +127,34 @@ identity surface.
   `docs/development/use-cases.md` and mirroring `publish_job.py`'s
   `PublishedJob` value.
 
-## Known gaps (out of scope for this task)
+## Company candidate management (US-21)
 
-- **No closing reason is exposed yet.** `ApplicationSummaryResponse` has no
-  `closed_reason` field: nothing in the codebase currently transitions an
-  application to `hired`, `not_selected` or `expired`, so there is no producer
-  for a rejection reason. The field will come back together with a future
-  company-side "reject candidate" action (US-21), which will also need to add
-  the column where that reason is stored (this task deliberately does not add
-  a speculative column or field for it) and to populate `application.closed_at`
-  too.
-- **No shared skill-matching/compatibility engine exists yet
-  (US-17-T01/US-10-T01).** `app/jobs` (#23) covers publishing a job and
-  `app/skills` (#25) covers the skill catalog, but neither compares a job's
-  requirements against a candidate's resume with anything beyond a plain
-  ID intersection. `find_similar_jobs` (suggestions) and
-  `match_requirements` (compatibility, this task) are both provisional
-  stand-ins built directly on `job_skill`/`resume_skill`; replace their
-  bodies once the real engine exists — callers do not need to change.
+Approved companies list their own applicants with `GET /jobs/{job_id}/applications`
+and use `PATCH /applications/{application_id}/status` to follow the allowed flow:
+`under_review -> in_selection_process -> hired`. New applications start in
+`under_review`; legacy `applied` applications can first move to review. Rejection to
+`not_selected` is allowed from review or selection and requires a trimmed reason
+of 1–500 characters. Terminal applications cannot change again. Status changes
+also produce the existing candidate notification.
+
+`GET /applications/{application_id}/profile` checks the job's company before
+loading the professional profile. Other companies receive the same `404
+application_not_found` as an unknown application. Candidates and unapproved
+companies cannot use this endpoint. The response explicitly allows professional
+fields, excluding contact/identity data and certification documents.
+
+`GET /applications/me` exposes `reason` for `not_selected` only, and `null` for
+other statuses. This closes the feedback loop in US-13 without a new migration.
+
+The listing retains the current US-19/US-20 compatibility engine: current résumé
+skills determine ranking and full-match counts. Application-time requirement
+counts remain a historical snapshot, not a replacement for this ranking.
+Automatic matches have no application ID or status and cannot receive company
+application actions until an application exists. Counts of applications and
+matches retain their separate meanings from `docs/JOBS.md`.
+
+## Remaining limitations
+
 - **`application.match_score` still has no producer.** It is a pre-existing
   0-100 percentage column; this task populates the more specific
   `matched_requirements`/`total_requirements` counts instead, since a single
