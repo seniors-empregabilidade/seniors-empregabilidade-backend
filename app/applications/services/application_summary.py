@@ -22,4 +22,5 @@ class ApplicationSummary:
     submitted_at: datetime
     days_in_process: int
     status: ApplicationStatus
+    reason: str | None = None
     similar_jobs: list[SimilarJob] = field(default_factory=list)

@@ -19,6 +19,19 @@ def test_settings_normalize_formatted_cnae_prefixes() -> None:
     assert settings.blocked_cnae_prefixes == ["62", "6201501"]
 
 
+@pytest.mark.parametrize(
+    "number", ["+5551999990000", "55 51 99999-0000", "0551999990000", "555199"]
+)
+def test_settings_reject_a_support_number_wa_me_cannot_open(number: str) -> None:
+    with pytest.raises(ValidationError, match="support_whatsapp_number"):
+        Settings(support_whatsapp_number=number)
+
+
+def test_settings_reject_an_empty_support_message() -> None:
+    with pytest.raises(ValidationError, match="support_whatsapp_message"):
+        Settings(support_whatsapp_message="")
+
+
 def test_settings_use_safe_local_defaults(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
