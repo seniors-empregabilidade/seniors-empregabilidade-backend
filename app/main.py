@@ -62,7 +62,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_credentials=False,
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["Accept", "Authorization", "Content-Type"],
-        expose_headers=[REQUEST_ID_HEADER],
+        # The frontend reads the CSV export's file name from Content-Disposition.
+        expose_headers=[REQUEST_ID_HEADER, "Content-Disposition"],
     )
 
     application.include_router(health_router)

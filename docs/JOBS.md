@@ -129,6 +129,10 @@ comparing the job's skills (`job_skill`) with the applicant's résumé skills
   Skills beyond the job's do not count; an applicant without a résumé scores
   `"0.00"`.
 - `is_highlighted` is `true` from 50% up, compared on the exact ratio.
+- `matched_skills` and `missing_skills` name the criteria behind the
+  percentage: the job's required skills found and not found on the résumé, each
+  `{id, name}`, ordered by name. Both are empty when the job has no required
+  skills.
 - Rows are ordered by `compatibility_percentage` descending; equal percentages
   keep the application order (oldest first). Highlighted applicants come first
   and the ones below 50% follow them in the same list.

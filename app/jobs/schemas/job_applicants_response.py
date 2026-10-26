@@ -15,6 +15,11 @@ class ApplicantProfileResponse(BaseModel):
     state: str | None
 
 
+class CompatibilitySkillResponse(BaseModel):
+    id: UUID
+    name: str
+
+
 class JobApplicantResponse(BaseModel):
     origin: Annotated[
         CandidateOrigin,
@@ -49,6 +54,20 @@ class JobApplicantResponse(BaseModel):
     ]
     matched_skill_count: int
     required_skill_count: int
+    matched_skills: Annotated[
+        list[CompatibilitySkillResponse],
+        Field(
+            description=(
+                "Required skills found on the résumé, ordered by name: the criteria "
+                "that contributed to compatibility_percentage. Empty when the job "
+                "has no required skills."
+            )
+        ),
+    ]
+    missing_skills: Annotated[
+        list[CompatibilitySkillResponse],
+        Field(description="Required skills not on the résumé, ordered by name."),
+    ]
     profile: ApplicantProfileResponse
 
 
