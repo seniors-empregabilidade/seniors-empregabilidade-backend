@@ -10,7 +10,7 @@ on the next authenticated request: `get_current_user` answers
 
 ## Endpoints
 
-Both routes require `require_administrator`. A missing or invalid token answers
+All routes require `require_administrator`. A missing or invalid token answers
 `401 invalid_access_token`. A candidate or a company answers
 `403 administrator_required`. A suspended or blocked caller answers
 `403 account_unavailable`. Every response sends `Cache-Control: no-store`.
@@ -38,6 +38,7 @@ All filters are optional and combine with `AND`. Invalid values answer
 | `company_status` | `pending`, `approved`, `rejected` or `blocked` | none | Matches `company.status`. Candidates have no company row, so they never match. This is the company's approval situation, not `app_user.account_status`. |
 | `min_completion` | integer | none | 0–100. With `max_completion`, keeps candidates whose résumé completion is inside the range. A candidate with no résumé counts as `0`. |
 | `max_completion` | integer | none | 0–100. See `min_completion`. When only one bound is sent, the other is `0` or `100`. |
+| `completeness` | `complete` or `incomplete` | none | Uses the same missing-field policy as US-08. Matches candidates only. |
 | `limit` | integer | 20 | From 1 to 100. |
 | `offset` | integer | 0 | From 0 to 2^63 - 1 (PostgreSQL `bigint`). |
 
@@ -47,6 +48,14 @@ A completion bound also forces `user_type = candidate`, so combining one with
 `user_type=company` returns an empty page.
 
 Results are ordered by `created_at` descending, then `id`.
+
+`completeness` checks city, state, summary, experience, education and skills,
+using the policy documented in [RESUME_ASSISTANCE.md](RESUME_ASSISTANCE.md).
+It does not depend on the legacy `completion_percentage`, which profile edits
+do not maintain. The numeric field and range filters remain for compatibility.
+Both the list and detail return `missing_fields`: an empty list means a complete
+candidate, a nonempty list means incomplete, and companies receive `null`.
+Combining completeness with company-only filters can legitimately return no rows.
 
 Each item:
 
@@ -59,6 +68,7 @@ Each item:
 | `account_status` | `active`, `suspended` or `blocked`. |
 | `company_status` | The company's approval situation; `null` for a candidate. |
 | `completion_percentage` | The candidate's résumé completion, `0` when they have no résumé; `null` for a company. |
+| `missing_fields` | US-08 missing field keys for a candidate; `null` for a company. Use this field to display and filter completeness. |
 | `created_at` | When the account was created. |
 
 ## Registration detail
@@ -72,7 +82,7 @@ the company fields below are `null`.
 
 | Field | Meaning |
 | --- | --- |
-| `id`, `user_type`, `email`, `display_name`, `account_status`, `company_status`, `completion_percentage`, `created_at` | Same meaning as a list item. |
+| `id`, `user_type`, `email`, `display_name`, `account_status`, `company_status`, `completion_percentage`, `missing_fields`, `created_at` | Same meaning as a list item. |
 | `application_count` | Applications the candidate has submitted. `null` for a company. |
 | `summary` | The résumé summary. `null` when there is no résumé, or the account is a company. |
 | `experiences` | `{id, role, company_name, start_date, end_date}`, newest start date first. `end_date` is `null` when the role is current. |

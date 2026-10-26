@@ -57,6 +57,7 @@ def read_accounts(
         int | None,
         Query(ge=0, le=100, description="Maximum résumé completion; candidates only"),
     ] = None,
+    completeness: Annotated[Literal["complete", "incomplete"] | None, Query()] = None,
     limit: Annotated[int, Query(ge=1, le=MAX_PAGE_SIZE)] = DEFAULT_PAGE_SIZE,
     offset: Annotated[int, Query(ge=0, le=MAX_OFFSET)] = 0,
 ) -> AccountListResponse:
@@ -70,6 +71,7 @@ def read_accounts(
         max_completion=max_completion,
         limit=limit,
         offset=offset,
+        completeness=completeness,
     )
 
 
