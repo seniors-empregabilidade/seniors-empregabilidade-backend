@@ -188,3 +188,8 @@ validation, Cognito confirmation, failure recovery and verification steps.
 
 See [US-17 and US-18 jobs](docs/JOBS.md) for publishing, "Minhas vagas",
 editing, closing and reopening, with field errors and transaction guarantees.
+
+## WhatsApp support
+
+See [US-27 support contact](docs/SUPPORT.md) for the public contact endpoint and
+its configuration.
