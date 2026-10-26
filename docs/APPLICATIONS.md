@@ -133,10 +133,12 @@ generate_automatic_applications.py`) with two triggers:
   request (a failure is logged as `automatic_applications_failed`). Every eligible
   professional already registered is evaluated.
 - **Daily.** A loop started with the API (`AutomaticApplicationScheduler`, same
-  shape as the e-mail dispatcher) evaluates every open job for professionals whose
-  account was created after the job. Earlier accounts were already evaluated when
-  the job was published. It runs once at startup and then every
-  `AUTOMATIC_APPLICATION_INTERVAL_SECONDS`; running again is harmless.
+  shape as the e-mail dispatcher) evaluates every open job for every eligible
+  professional who has no application to it yet. This is how a professional who
+  turns the preference on, completes their skills or becomes available after a
+  job was published is applied on the next cycle (US-20-T05). It runs once at
+  startup and then every `AUTOMATIC_APPLICATION_INTERVAL_SECONDS`; running again
+  is harmless.
 
 Rules:
 

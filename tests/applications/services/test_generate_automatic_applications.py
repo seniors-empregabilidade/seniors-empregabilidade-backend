@@ -5,11 +5,11 @@ from datetime import UTC, date, datetime, timedelta
 from uuid import UUID
 
 import pytest
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 
 from app.applications.services.generate_automatic_applications import (
     generate_automatic_applications_for_job,
-    generate_automatic_applications_for_new_candidates,
+    generate_automatic_applications_for_open_jobs,
 )
 from app.db.models import (
     Application,
@@ -329,19 +329,20 @@ def test_running_again_never_duplicates_an_application(
     assert stored[0].type == ApplicationType.ACTIVE
 
 
-def test_daily_round_only_considers_professionals_registered_after_the_job(
+def test_daily_round_evaluates_every_eligible_professional(
     scenario: AutomaticScenario,
 ) -> None:
     with get_session_factory()() as session:
-        generate_automatic_applications_for_new_candidates(
+        generate_automatic_applications_for_open_jobs(
             session, threshold_percent=THRESHOLD, now=scenario.now
         )
 
     applied = _applied_candidate_ids(scenario.job_id)
-    assert scenario.late_high_id in applied
+    # Accounts older than the job count too: they may have become eligible
+    # after it was published.
+    assert {scenario.high_id, scenario.late_high_id} <= applied
     assert applied.isdisjoint(
         {
-            scenario.high_id,
             scenario.low_id,
             scenario.late_low_id,
             scenario.opted_out_id,
@@ -350,3 +351,28 @@ def test_daily_round_only_considers_professionals_registered_after_the_job(
         }
     )
     assert _applied_candidate_ids(scenario.draft_job_id) == set()
+
+
+def test_turning_the_preference_on_applies_on_the_next_daily_round(
+    scenario: AutomaticScenario,
+) -> None:
+    # US-20-T05: the professional had the preference off when the job was
+    # published and turns it on afterwards.
+    with get_session_factory()() as session:
+        generate_automatic_applications_for_job(
+            session, job_id=scenario.job_id, threshold_percent=THRESHOLD
+        )
+    assert scenario.opted_out_id not in _applied_candidate_ids(scenario.job_id)
+
+    with get_session_factory().begin() as session:
+        session.execute(
+            update(Candidate)
+            .where(Candidate.id == scenario.opted_out_id)
+            .values(accepts_automatic_application=True)
+        )
+    with get_session_factory()() as session:
+        generate_automatic_applications_for_open_jobs(
+            session, threshold_percent=THRESHOLD, now=scenario.now
+        )
+
+    assert scenario.opted_out_id in _applied_candidate_ids(scenario.job_id)
