@@ -15,6 +15,7 @@ from tests.identity.fakes import FakeIdentityProvider
 LIST_PATH = "/api/v1/admin/accounts"
 DETAIL_PATH = f"/api/v1/admin/accounts/{uuid4()}"
 STATUS_PATH = f"{DETAIL_PATH}/status"
+EXPORT_PATH = "/api/v1/admin/accounts/export"
 VALID_BODY = {"status": "blocked", "reason": "Synthetic justification."}
 
 
@@ -38,7 +39,12 @@ def administrator_client(
 
 @pytest.mark.parametrize(
     ("method", "path"),
-    [("GET", LIST_PATH), ("GET", DETAIL_PATH), ("PATCH", STATUS_PATH)],
+    [
+        ("GET", LIST_PATH),
+        ("GET", EXPORT_PATH),
+        ("GET", DETAIL_PATH),
+        ("PATCH", STATUS_PATH),
+    ],
 )
 def test_requests_without_a_token_are_rejected(
     application: FastAPI, client: TestClient, method: str, path: str
@@ -54,7 +60,12 @@ def test_requests_without_a_token_are_rejected(
 @pytest.mark.parametrize("user_type", [UserType.CANDIDATE, UserType.COMPANY])
 @pytest.mark.parametrize(
     ("method", "path"),
-    [("GET", LIST_PATH), ("GET", DETAIL_PATH), ("PATCH", STATUS_PATH)],
+    [
+        ("GET", LIST_PATH),
+        ("GET", EXPORT_PATH),
+        ("GET", DETAIL_PATH),
+        ("PATCH", STATUS_PATH),
+    ],
 )
 def test_only_administrators_can_manage_accounts(
     application: FastAPI,
@@ -96,11 +107,30 @@ def test_invalid_filters_are_rejected_before_listing(
     assert list(response.json()["errors"]) == [field]
 
 
+@pytest.mark.parametrize(
+    ("params", "field"),
+    [
+        ({"user_type": "administrator"}, "query.user_type"),
+        ({"account_status": "deleted"}, "query.account_status"),
+        ({"completeness": "partial"}, "query.completeness"),
+    ],
+)
+def test_invalid_filters_are_rejected_before_exporting(
+    administrator_client: TestClient, params: dict[str, str], field: str
+) -> None:
+    response = administrator_client.get(EXPORT_PATH, params=params)
+
+    assert response.status_code == 422
+    assert response.headers["content-type"] == "application/problem+json"
+    assert list(response.json()["errors"]) == [field]
+
+
+@pytest.mark.parametrize("path", [LIST_PATH, EXPORT_PATH])
 def test_a_reversed_completion_range_is_rejected(
-    administrator_client: TestClient,
+    administrator_client: TestClient, path: str
 ) -> None:
     response = administrator_client.get(
-        LIST_PATH, params={"min_completion": 80, "max_completion": 20}
+        path, params={"min_completion": 80, "max_completion": 20}
     )
 
     assert response.status_code == 422

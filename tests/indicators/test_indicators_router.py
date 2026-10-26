@@ -1,17 +1,24 @@
+from uuid import uuid4
+
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.auth.dependencies import require_administrator
+from app.auth.schemas.current_user import CurrentUser
 from app.core.errors import ProblemException
+from app.db.models.enums import UserType
 from app.db.session import get_session
 
 INDICATORS_PATH = "/api/v1/indicators"
+EXPORT_PATH = f"{INDICATORS_PATH}/export"
 
 
 @pytest.fixture
 def as_administrator(application: FastAPI) -> None:
-    application.dependency_overrides[require_administrator] = lambda: None
+    application.dependency_overrides[require_administrator] = lambda: CurrentUser(
+        id=uuid4(), user_type=UserType.ADMINISTRATOR
+    )
     application.dependency_overrides[get_session] = lambda: None
 
 
@@ -24,22 +31,26 @@ def _deny_access() -> None:
     )
 
 
+@pytest.mark.parametrize("path", [INDICATORS_PATH, EXPORT_PATH])
 def test_indicators_route_is_guarded_by_the_administrator_check(
-    application: FastAPI, client: TestClient
+    application: FastAPI, client: TestClient, path: str
 ) -> None:
     application.dependency_overrides[require_administrator] = _deny_access
     application.dependency_overrides[get_session] = lambda: None
 
-    response = client.get(INDICATORS_PATH)
+    response = client.get(path)
 
     assert response.status_code == 403
     assert response.json()["code"] == "administrator_required"
 
 
 @pytest.mark.usefixtures("as_administrator")
-def test_period_starting_after_it_ends_is_rejected(client: TestClient) -> None:
+@pytest.mark.parametrize("path", [INDICATORS_PATH, EXPORT_PATH])
+def test_period_starting_after_it_ends_is_rejected(
+    client: TestClient, path: str
+) -> None:
     response = client.get(
-        INDICATORS_PATH,
+        path,
         params={"start_date": "2026-02-01", "end_date": "2026-01-01"},
     )
 

@@ -24,6 +24,8 @@ All routes require `require_administrator`. A missing or invalid token answers
 3. `PATCH /api/v1/admin/accounts/{account_id}/status` sets that account to
    `active` or `blocked` and returns `{id, account_status}`. The modal uses
    `blocked` to block and `active` to reactivate; both require `reason`.
+4. `GET /api/v1/admin/accounts/export` downloads every account matching the
+   filters as a CSV file and logs the export. See [EXPORTS.md](EXPORTS.md).
 
 ## Filters
 

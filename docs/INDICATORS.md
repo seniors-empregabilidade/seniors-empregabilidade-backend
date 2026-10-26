@@ -135,5 +135,7 @@ blocking/reactivation and audit, current employment, US-08 consistency despite
 stale percentages, Brazil day boundaries and the maximum ISO date. Use an
 isolated PostgreSQL test database for the full suite.
 
-The dashboard consumes this contract at `/administrador`. US-25 CSV exports
-remain a separate delivery. No schema migration or dependency is required.
+The dashboard consumes this contract at `/administrador`.
+`GET /api/v1/indicators/export` downloads the same numbers, with the applied
+filters, as a CSV file; see [EXPORTS.md](EXPORTS.md). No schema migration or
+dependency is required.
