@@ -23,6 +23,9 @@ def isolate_identity_configuration(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("EMAIL_BACKEND", "log")
     monkeypatch.setenv("EMAIL_SENDER_ADDRESS", "")
     monkeypatch.setenv("EMAIL_DISPATCH_ENABLED", "false")
+    # Nor does any test start the automatic application loop.
+    monkeypatch.setenv("AUTOMATIC_APPLICATION_ENABLED", "false")
+    monkeypatch.delenv("AUTOMATIC_APPLICATION_THRESHOLD_PERCENT", raising=False)
 
 
 @pytest.fixture(autouse=True)

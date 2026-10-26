@@ -1,11 +1,15 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, Response
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, Response
 from sqlalchemy.orm import Session
 
+from app.applications.services.apply_automatically_to_new_job import (
+    apply_automatically_to_new_job,
+)
 from app.auth.dependencies import require_approved_company, require_candidate
 from app.auth.schemas.current_user import CurrentUser
+from app.core.config import Settings, get_settings
 from app.core.pagination import DEFAULT_PAGE_SIZE, MAX_OFFSET, MAX_PAGE_SIZE
 from app.core.problem_details import PROBLEM_RESPONSE
 from app.db.session import get_session
@@ -54,11 +58,19 @@ router = APIRouter(
 def create_job(
     request: CreateJobRequest,
     response: Response,
+    background_tasks: BackgroundTasks,
     user: Annotated[CurrentUser, Depends(require_approved_company)],
     session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
 ) -> JobResponse:
     response.headers["Cache-Control"] = "no-store"
-    return _job_response(publish_job(request, session=session, company_id=user.id))
+    job = publish_job(request, session=session, company_id=user.id)
+    background_tasks.add_task(
+        apply_automatically_to_new_job,
+        job.id,
+        settings.automatic_application_threshold_percent,
+    )
+    return _job_response(job)
 
 
 @router.get("/me", response_model=list[JobSummaryResponse])

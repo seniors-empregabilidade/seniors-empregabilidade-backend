@@ -122,6 +122,49 @@ identity surface.
   `docs/development/use-cases.md` and mirroring `publish_job.py`'s
   `PublishedJob` value.
 
+## Automatic applications
+
+The platform applies on a professional's behalf when their compatibility with an
+open job reaches a threshold. It is one job (`app/applications/services/
+generate_automatic_applications.py`) with two triggers:
+
+- **When a job is published.** `POST /api/v1/jobs` schedules the evaluation as a
+  background task after the `201`, so it never delays or fails the company's
+  request (a failure is logged as `automatic_applications_failed`). Every eligible
+  professional already registered is evaluated.
+- **Daily.** A loop started with the API (`AutomaticApplicationScheduler`, same
+  shape as the e-mail dispatcher) evaluates every open job for professionals whose
+  account was created after the job. Earlier accounts were already evaluated when
+  the job was published. It runs once at startup and then every
+  `AUTOMATIC_APPLICATION_INTERVAL_SECONDS`; running again is harmless.
+
+Rules:
+
+- Compatibility is `JobCompatibilityPolicy` (US-19). The professional qualifies
+  when `matched / required >= threshold`, compared on the exact ratio
+  (`qualifies_for_automatic_application`). A job without required skills is skipped.
+- Only open jobs: published, within the closing date, company not `blocked`.
+- Only professionals with an `active` account, `available`, and
+  `candidate.accepts_automatic_application` on. The column defaults to `true`;
+  the migration also turned it on for existing rows, since nothing could set it
+  before. Turning it off (T05) stops new automatic applications and does not
+  withdraw existing ones.
+- No duplicates: a professional with any application to the job, in any status,
+  is skipped, and the insert uses `ON CONFLICT DO NOTHING` on the
+  `(candidate_id, job_id)` unique constraint, so overlapping runs cannot create two.
+- The application is stored with `type = automatic`, `status = under_review` and
+  the requirement counts, exactly like a manual one otherwise. It does not notify
+  the company: it appears in the job's applicants list (US-20).
+
+| Variable | Default | Effect |
+| --- | --- | --- |
+| `AUTOMATIC_APPLICATION_THRESHOLD_PERCENT` | `70` | Minimum compatibility, 1 to 100 |
+| `AUTOMATIC_APPLICATION_ENABLED` | `false` | Starts the daily loop with the API |
+| `AUTOMATIC_APPLICATION_INTERVAL_SECONDS` | `86400` | Pause between daily rounds |
+
+The loop is off by default, as for e-mail: set `AUTOMATIC_APPLICATION_ENABLED=true`
+in the deployed configuration. The job-published trigger does not depend on it.
+
 ## Known gaps (out of scope for this task)
 
 - **No closing reason is exposed yet.** `ApplicationSummaryResponse` has no
