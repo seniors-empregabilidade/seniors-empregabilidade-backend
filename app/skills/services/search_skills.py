@@ -11,16 +11,16 @@ from app.skills.services.catalog_skill import CatalogSkill
 def search_skills(
     *, session: Session, search: str | None = None, limit: int
 ) -> list[CatalogSkill]:
-    """List catalog skills that contain the searched text, ignoring case and accents.
+    """List active catalog skills that contain the searched text, ignoring case and accents.
 
     A blank search lists the catalog. A search that no stored name could contain,
     because it outgrows the column once normalized or carries a control character,
     finds nothing instead of reaching the database.
     """
-    statement = select(Skill).order_by(Skill.name).limit(limit)
+    statement = select(Skill).where(Skill.is_active).order_by(Skill.name).limit(limit)
     term = normalize_skill_name(search) if search is not None else ""
     if term:
-        if not _could_be_stored(term):
+        if not could_be_stored(term):
             return []
         statement = statement.where(
             Skill.normalized_name.contains(term, autoescape=True)
@@ -29,7 +29,8 @@ def search_skills(
     return [CatalogSkill.of(skill) for skill in session.scalars(statement)]
 
 
-def _could_be_stored(term: str) -> bool:
+def could_be_stored(term: str) -> bool:
+    """Whether a normalized search term could be part of a stored name."""
     return len(term) <= MAX_SKILL_NAME_LENGTH and not any(
         unicodedata.category(character) == "Cc" for character in term
     )

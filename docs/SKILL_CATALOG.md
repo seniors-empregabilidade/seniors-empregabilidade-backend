@@ -66,8 +66,30 @@ so an interface can render the stored spelling:
 [{ "id": "<uuid>", "name": "NR-11", "type": "hard" }]
 ```
 
+## Administration
+
+US-06-T05 lets an administrator maintain the catalog. Every route answers
+`403 administrator_required` to other roles.
+
+| Endpoint | Request | Success |
+| --- | --- | --- |
+| `GET /admin/skills` | `search`, `type` (`hard`/`soft`), `status` (`active`/`inactive`), `limit` (1–50, default 20), `offset` | `200` `{ "items": [...], "total": n }`, inactive entries included, sorted by name |
+| `POST /admin/skills` | `{ "name", "type" }` | `201`, created active |
+| `PATCH /admin/skills/{id}` | any of `name`, `type`, `status` | `200` |
+
+Each entry is `{ "id", "name", "type", "status" }`. A name whose normalized form
+belongs to another entry, active or not, returns `409 skill_name_conflict`;
+fixing the accents of an entry's own name is not a conflict. An unknown `id`
+returns `404 skill_not_found`, and a PATCH without any field returns
+`422 validation_error`. Setting the status an entry already has succeeds.
+
+An inactive skill only leaves `GET /skills`, so candidates stop finding it and
+companies stop getting it as a suggestion. It stays on the résumés and jobs that
+already use it, saving those again keeps it, and compatibility does not change.
+A company that types its name resolves to the same entry instead of creating a
+new one.
+
 ## Remaining work
 
-Course skills and the compatibility calculation consume this catalog and are
-implemented by their own user stories. Merging or renaming catalog entries has no
-administrative endpoint yet.
+Course skills consume this catalog and are implemented by their own user story.
+Merging two catalog entries has no administrative endpoint.
