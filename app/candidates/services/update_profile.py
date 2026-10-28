@@ -32,6 +32,10 @@ def update_profile(
             candidate.city = changes["city"]
         if "state" in changes:
             candidate.state = changes["state"]
+        if "accepts_automatic_application" in changes:
+            candidate.accepts_automatic_application = changes[
+                "accepts_automatic_application"
+            ]
 
         if "summary" in changes:
             resume = session.scalar(

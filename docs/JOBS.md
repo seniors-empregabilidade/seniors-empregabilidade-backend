@@ -176,6 +176,14 @@ professional is a separate story (US-29).
 The header keeps `total_applicant_count` and `full_match_count` for
 applications only and adds `automatic_match_count`.
 
+### Automatic application opt-in (US-20-T05)
+
+`GET /api/v1/professionals/me` returns `accepts_automatic_application`, and
+`PATCH /api/v1/professionals/me` accepts it as `true` or `false` (`null` is
+rejected). It starts with the column default, which US-20-T04 turns on, and the
+professional can turn it off at any time. US-20-T04 reads it to decide who is
+applied automatically; turning it off stops new applications from the next cycle.
+
 ## Failures
 
 | Status | `code` | When |

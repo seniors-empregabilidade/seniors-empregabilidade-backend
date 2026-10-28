@@ -396,6 +396,7 @@ def _profile_response(record: ProfileRecord) -> ProfessionalProfileResponse:
         city=record.city,
         state=record.state,
         summary=record.summary,
+        accepts_automatic_application=record.accepts_automatic_application,
         experiences=[_experience_response(item) for item in record.experiences],
         education=[_education_response(item) for item in record.education],
         certifications=[
