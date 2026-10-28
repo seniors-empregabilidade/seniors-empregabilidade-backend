@@ -18,7 +18,8 @@ def add_skill(
 ) -> CatalogSkill:
     try:
         skill = session.get(Skill, request.skill_id)
-        if skill is None:
+        # An inactive skill is withdrawn from selection, so it cannot be added anew.
+        if skill is None or not skill.is_active:
             raise SkillNotFoundError()
 
         resume = get_or_create_resume(user_id, session)
@@ -64,7 +65,8 @@ def replace_skills(
     """Keep exactly the requested catalog skills on the résumé.
 
     Every identifier is checked before a link is removed, so an unknown skill leaves
-    the résumé as it was instead of half replaced.
+    the résumé as it was instead of half replaced. An inactive skill may stay on the
+    résumé that already has it, but it cannot be selected anew.
     """
     try:
         wanted = set(request.skill_ids)
@@ -81,6 +83,14 @@ def replace_skills(
             select(Candidate.id).where(Candidate.id == user_id).with_for_update()
         )
         resume = get_or_create_resume(user_id, session)
+        kept = set(
+            session.scalars(
+                select(ResumeSkill.skill_id).where(ResumeSkill.resume_id == resume.id)
+            )
+        )
+        if any(not skill.is_active and skill.id not in kept for skill in skills):
+            raise SkillNotFoundError()
+
         session.execute(delete(ResumeSkill).where(ResumeSkill.resume_id == resume.id))
         session.add_all(
             ResumeSkill(resume_id=resume.id, skill_id=skill.id) for skill in skills

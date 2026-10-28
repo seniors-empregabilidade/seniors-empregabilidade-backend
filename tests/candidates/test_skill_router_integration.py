@@ -87,6 +87,13 @@ def add_catalog_skill(name: str = SKILL_NAME) -> UUID:
         return skill.id
 
 
+def inactivate(skill_id: UUID) -> None:
+    with get_session_factory().begin() as session:
+        session.execute(
+            update(Skill).where(Skill.id == skill_id).values(is_active=False)
+        )
+
+
 def linked_skills(user_id: UUID) -> list[UUID]:
     with get_session_factory()() as session:
         resume = session.query(Resume).filter(Resume.candidate_id == user_id).first()
@@ -265,6 +272,41 @@ def test_replacing_with_an_unknown_skill_changes_nothing(
     assert response.headers["content-type"] == "application/problem+json"
     assert response.json()["code"] == "skill_not_found"
     assert linked_skills(user_id) == [skill_id]
+
+
+def test_an_inactive_skill_stays_while_another_one_is_selected(
+    client: TestClient, provider: FakeIdentityProvider
+) -> None:
+    user_id = add_candidate()
+    withdrawn = add_catalog_skill()
+    chosen = add_catalog_skill(OTHER_SKILL_NAME)
+    client.put(SKILLS_PATH, json={"skill_ids": [str(withdrawn)]}, headers=AUTH)
+    inactivate(withdrawn)
+
+    response = client.put(
+        SKILLS_PATH, json={"skill_ids": [str(withdrawn), str(chosen)]}, headers=AUTH
+    )
+
+    assert response.status_code == 200
+    assert set(linked_skills(user_id)) == {withdrawn, chosen}
+
+
+def test_selecting_an_inactive_skill_anew_changes_nothing(
+    client: TestClient, provider: FakeIdentityProvider
+) -> None:
+    user_id = add_candidate()
+    kept = add_catalog_skill(OTHER_SKILL_NAME)
+    withdrawn = add_catalog_skill()
+    client.put(SKILLS_PATH, json={"skill_ids": [str(kept)]}, headers=AUTH)
+    inactivate(withdrawn)
+
+    response = client.put(
+        SKILLS_PATH, json={"skill_ids": [str(withdrawn)]}, headers=AUTH
+    )
+
+    assert response.status_code == 404
+    assert response.json()["code"] == "skill_not_found"
+    assert linked_skills(user_id) == [kept]
 
 
 def test_a_repeated_skill_is_saved_once(
