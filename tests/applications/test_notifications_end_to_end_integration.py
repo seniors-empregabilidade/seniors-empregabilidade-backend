@@ -116,6 +116,43 @@ def test_application_notifies_and_sends_email_end_to_end(
     assert "Submission Open Role" not in body
 
 
+def test_email_failure_does_not_roll_back_notification_end_to_end(
+    applications_client: TestClient, submission_scenario: SubmissionScenario
+) -> None:
+    response = applications_client.post(
+        "/api/v1/applications",
+        json={"job_id": str(submission_scenario.job_open_id)},
+        headers=authorization(SUBMIT_TOKEN),
+    )
+    assert response.status_code == 201
+
+    sender = FakeEmailSender(failure_code="MessageRejected")
+    now = datetime.now(UTC)
+    with get_session_factory()() as session:
+        attempted = dispatch_pending_emails(
+            session, sender=sender, app_url=APP_URL, max_attempts=5, now=now
+        )
+
+    assert attempted == 1
+    assert sender.sent == []
+
+    with get_session_factory()() as session:
+        job = session.get(Job, submission_scenario.job_open_id)
+        assert job is not None
+        notification = session.scalars(
+            select(Notification).where(Notification.user_id == job.company_id)
+        ).one()
+        delivery = session.scalars(
+            select(EmailDelivery).where(
+                EmailDelivery.notification_id == notification.id
+            )
+        ).one()
+        assert notification.read is False
+        assert delivery.status == EmailDeliveryStatus.PENDING
+        assert delivery.attempts == 1
+        assert delivery.last_error == "MessageRejected"
+
+
 def test_status_change_notifies_and_sends_email_end_to_end(
     update_status_client: TestClient,
     database_session: Session,
