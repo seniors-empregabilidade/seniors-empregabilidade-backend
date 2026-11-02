@@ -13,9 +13,8 @@ def apply_automatically_to_new_job(job_id: UUID, threshold_percent: int) -> None
     """Evaluate a just-published job in its own session, after the response.
 
     The company already got its `201`: a failure here is logged and never reaches
-    the request. The daily round only looks at later accounts, so a failure is not
-    retried for professionals registered before the job; fix the cause and publish
-    again, or re-run the evaluation by hand.
+    the request. The next daily round reevaluates every eligible professional with
+    no existing application, including professionals registered before the job.
     """
     try:
         with get_session_factory()() as session:
