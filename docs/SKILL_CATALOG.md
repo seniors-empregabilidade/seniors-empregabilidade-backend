@@ -10,7 +10,7 @@ read through suggestions while a person types.
 | --- | --- |
 | Company publishing a job | Types freely; an unknown name creates a catalog skill |
 | Administrator registering a course | Same as the company |
-| Candidate editing the résumé | Chooses an existing catalog skill; typing only filters suggestions |
+| Candidate editing the résumé | Chooses an existing active catalog skill; typing only filters suggestions |
 
 A created skill needs its type (`hard` for a technical skill, `soft` for a
 behavioral one) because the catalog classifies every entry. The type is ignored
@@ -47,7 +47,7 @@ All paths start with `/api/v1`. Any authenticated account may read the catalog.
 
 | Endpoint | Request | Success |
 | --- | --- | --- |
-| `GET /skills` | `search` (optional, matched without case or accents), `limit` (1–50, default 20) | `200`: list of `id`, `name`, `type`, sorted by name |
+| `GET /skills` | `search` (optional, matched without case or accents), `limit` (1–50, default 20) | `200`: list of active `id`, `name`, `type`, sorted by name |
 | `PUT /professionals/me/skills` | `{ "skill_ids": ["<uuid>"] }` (up to 100 catalog IDs; an empty list clears the selection) | `200`: final list of `id`, `name`, `type`, sorted by name |
 
 Companies and administrators creating skills send objects:
@@ -83,11 +83,14 @@ fixing the accents of an entry's own name is not a conflict. An unknown `id`
 returns `404 skill_not_found`, and a PATCH without any field returns
 `422 validation_error`. Setting the status an entry already has succeeds.
 
-An inactive skill only leaves `GET /skills`, so candidates stop finding it and
-companies stop getting it as a suggestion. It stays on the résumés and jobs that
-already use it, saving those again keeps it, and compatibility does not change.
-A company that types its name resolves to the same entry instead of creating a
-new one.
+An inactive skill leaves `GET /skills`, so candidates stop finding it and
+companies stop getting it as a suggestion. It cannot be selected anew either:
+`POST` and `PUT /professionals/me/skills` answer `404 skill_not_found` for it, as
+for an unknown skill, unless the résumé already has it. It stays on the résumés
+and jobs that already use it, saving those again keeps it, and compatibility does
+not change; once removed from a résumé, it returns only after reactivation. A
+company that types its name resolves to the same entry instead of creating a new
+one.
 
 ## Remaining work
 
