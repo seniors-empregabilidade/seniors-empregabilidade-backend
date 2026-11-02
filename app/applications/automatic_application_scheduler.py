@@ -3,7 +3,7 @@ import threading
 from collections.abc import Callable
 
 from app.applications.services.generate_automatic_applications import (
-    generate_automatic_applications_for_new_candidates,
+    generate_automatic_applications_for_open_jobs,
 )
 from app.core.config import Settings
 from app.db.session import get_session_factory
@@ -58,7 +58,7 @@ def build_automatic_application_scheduler(
 ) -> AutomaticApplicationScheduler:
     def run_once() -> int:
         with get_session_factory()() as session:
-            return generate_automatic_applications_for_new_candidates(
+            return generate_automatic_applications_for_open_jobs(
                 session,
                 threshold_percent=settings.automatic_application_threshold_percent,
             )

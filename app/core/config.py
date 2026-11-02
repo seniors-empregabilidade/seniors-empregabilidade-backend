@@ -82,8 +82,8 @@ class Settings(BaseSettings):
     email_max_attempts: PositiveInt = 5
 
     # Automatic applications (US-20): minimum compatibility, in percent, for the
-    # platform to apply on a professional's behalf. The loop that re-evaluates
-    # open jobs for newly registered professionals is off by default so tests
+    # platform to apply on a professional's behalf. The daily loop that
+    # re-evaluates open jobs for eligible professionals is off by default so tests
     # and one-off commands never start it.
     automatic_application_threshold_percent: int = Field(default=70, ge=1, le=100)
     automatic_application_enabled: bool = False

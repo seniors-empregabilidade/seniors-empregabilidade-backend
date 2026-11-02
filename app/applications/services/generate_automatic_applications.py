@@ -59,22 +59,24 @@ def generate_automatic_applications_for_job(
         session,
         job_id=job_id,
         threshold_percent=threshold_percent,
-        registered_after=None,
     )
     _log_round("job", jobs=1, applications=created)
     return created
 
 
-def generate_automatic_applications_for_new_candidates(
+def generate_automatic_applications_for_open_jobs(
     session: Session,
     *,
     threshold_percent: int,
     now: datetime | None = None,
 ) -> int:
-    """Evaluate every open job for professionals registered after the job.
+    """Evaluate every open job for every eligible professional without an application.
 
-    Runs daily. A professional registered before a job was published was already
-    evaluated for it when it was published, so only later accounts are considered.
+    Runs daily. Earlier accounts are evaluated again on purpose: a professional who
+    turns the preference on, completes their skills or becomes available after a
+    job was published must be applied on the next cycle (US-20-T05). The unique
+    `(candidate_id, job_id)` constraint keeps the extra evaluations harmless, and a
+    professional who withdrew keeps their row, so they are never applied again.
     Returns how many applications were created.
     """
     reference_now = now or datetime.now(UTC)
@@ -90,7 +92,6 @@ def generate_automatic_applications_for_new_candidates(
             session,
             job_id=job.id,
             threshold_percent=threshold_percent,
-            registered_after=job.created_at,
         )
     _log_round("daily", jobs=len(open_jobs), applications=created)
     return created
@@ -101,7 +102,6 @@ def _apply_to_job(
     *,
     job_id: UUID,
     threshold_percent: int,
-    registered_after: datetime | None,
 ) -> int:
     required_skill_ids = frozenset(
         session.scalars(select(JobSkill.skill_id).where(JobSkill.job_id == job_id))
@@ -113,7 +113,6 @@ def _apply_to_job(
         session,
         job_id=job_id,
         required_skill_ids=required_skill_ids,
-        registered_after=registered_after,
     )
     scores = JobCompatibilityPolicy(required_skill_ids).rank(skill_ids_by_candidate)
     rows = [
@@ -153,7 +152,6 @@ def _shared_skill_ids_by_candidate(
     *,
     job_id: UUID,
     required_skill_ids: frozenset[UUID],
-    registered_after: datetime | None,
 ) -> dict[UUID, set[UUID]]:
     """Required skills held by each eligible professional who has not applied.
 
@@ -171,9 +169,6 @@ def _shared_skill_ids_by_candidate(
         Candidate.accepts_automatic_application.is_(True),
         ~has_applied,
     ]
-    if registered_after is not None:
-        conditions.append(AppUser.created_at > registered_after)
-
     rows = session.execute(
         select(Candidate.id, ResumeSkill.skill_id)
         .join(AppUser, AppUser.id == Candidate.id)
