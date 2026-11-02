@@ -29,6 +29,9 @@ class AccountSkillResponse(BaseModel):
 
 
 class AccountDetailResponse(BaseModel):
+    missing_fields: list[str] | None = Field(
+        default=None, description="US-08 missing résumé fields; null for companies."
+    )
     id: UUID
     user_type: UserType
     email: str

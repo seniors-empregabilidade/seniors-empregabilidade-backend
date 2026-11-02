@@ -94,6 +94,7 @@ def get_profile(user_id: UUID, *, session: Session) -> ProfileRecord:
         city=candidate.city,
         state=candidate.state,
         summary=resume.summary if resume else None,
+        accepts_automatic_application=candidate.accepts_automatic_application,
         experiences=experiences,
         education=education,
         certifications=certifications,

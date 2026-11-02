@@ -47,6 +47,13 @@ def test_local_frontend_origin_is_allowed(client: TestClient) -> None:
     assert response.headers.get("access-control-allow-credentials") is None
 
 
+def test_frontend_can_read_the_exported_file_name(client: TestClient) -> None:
+    response = client.get("/health", headers={"Origin": "http://localhost:5173"})
+
+    exposed = response.headers["access-control-expose-headers"].lower().split(",")
+    assert "content-disposition" in [header.strip() for header in exposed]
+
+
 def test_unconfigured_origin_is_not_allowed(client: TestClient) -> None:
     response = client.options(
         "/health",

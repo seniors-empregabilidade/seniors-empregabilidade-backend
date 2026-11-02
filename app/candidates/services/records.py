@@ -57,6 +57,7 @@ class ProfileRecord:
     city: str | None
     state: str | None
     summary: str | None
+    accepts_automatic_application: bool
     experiences: tuple[ExperienceRecord, ...]
     education: tuple[EducationRecord, ...]
     certifications: tuple[CertificationRecord, ...]

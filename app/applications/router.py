@@ -4,6 +4,10 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.orm import Session
 
+from app.applications.schemas.applicant_certification_response import (
+    ApplicantCertificationResponse,
+)
+from app.applications.schemas.applicant_detail_response import ApplicantDetailResponse
 from app.applications.schemas.application_action_response import (
     ApplicationActionResponse,
 )
@@ -20,6 +24,7 @@ from app.applications.schemas.update_application_status_request import (
 )
 from app.applications.services.application_action_result import ApplicationActionResult
 from app.applications.services.application_summary import ApplicationSummary
+from app.applications.services.get_applicant_profile import get_applicant_profile
 from app.applications.services.list_my_applications import list_my_applications
 from app.applications.services.submit_application import (
     SubmittedApplication,
@@ -31,14 +36,77 @@ from app.applications.services.update_application_status import (
 from app.applications.services.withdraw_application import withdraw_application
 from app.auth.dependencies import require_approved_company, require_candidate
 from app.auth.schemas.current_user import CurrentUser
+from app.candidates.schemas.profile import EducationResponse, ExperienceResponse
 from app.core.problem_details import PROBLEM_RESPONSE
 from app.db.session import get_session
+from app.skills.schemas import SkillResponse
 
 router = APIRouter(
     prefix="/applications",
     tags=["applications"],
     responses={code: PROBLEM_RESPONSE for code in (401, 403)},
 )
+
+
+@router.get(
+    "/{application_id}/profile",
+    response_model=ApplicantDetailResponse,
+    responses={404: PROBLEM_RESPONSE},
+)
+def read_applicant_profile(
+    application_id: UUID,
+    response: Response,
+    user: Annotated[CurrentUser, Depends(require_approved_company)],
+    session: Annotated[Session, Depends(get_session)],
+) -> ApplicantDetailResponse:
+    response.headers["Cache-Control"] = "no-store"
+    detail = get_applicant_profile(
+        session, application_id=application_id, company_id=user.id
+    )
+    return ApplicantDetailResponse(
+        application_id=detail.application_id,
+        candidate_id=detail.candidate_id,
+        full_name=detail.full_name,
+        city=detail.city,
+        state=detail.state,
+        summary=detail.summary,
+        experiences=[
+            ExperienceResponse(
+                id=item.id,
+                role=item.role,
+                company_name=item.company_name,
+                start_date=item.start_date,
+                end_date=item.end_date,
+                description=item.description,
+            )
+            for item in detail.experiences
+        ],
+        education=[
+            EducationResponse(
+                id=item.id,
+                institution=item.institution,
+                degree=item.degree,
+                field=item.field,
+                start_date=item.start_date,
+                end_date=item.end_date,
+            )
+            for item in detail.education
+        ],
+        certifications=[
+            ApplicantCertificationResponse(
+                id=item.id,
+                name=item.name,
+                issuer=item.issuer,
+                issued_date=item.issued_date,
+                expiration_date=item.expiration_date,
+            )
+            for item in detail.certifications
+        ],
+        skills=[
+            SkillResponse(id=item.id, name=item.name, type=item.type)
+            for item in detail.skills
+        ],
+    )
 
 
 def _to_response(summary: ApplicationSummary) -> ApplicationSummaryResponse:
@@ -50,6 +118,7 @@ def _to_response(summary: ApplicationSummary) -> ApplicationSummaryResponse:
         submitted_at=summary.submitted_at,
         days_in_process=summary.days_in_process,
         status=summary.status,
+        reason=summary.reason,
         similar_jobs=[
             SimilarJobResponse(
                 id=job.id, title=job.title, company_name=job.company_name

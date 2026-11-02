@@ -34,6 +34,7 @@ def list_my_applications(
             company_display_name.label("company_name"),
             Application.created_at.label("submitted_at"),
             Application.status,
+            Application.reason,
             Application.closed_at,
         )
         .join(Job, Job.id == Application.job_id)
@@ -71,6 +72,9 @@ def list_my_applications(
                     now=reference_now,
                 ),
                 status=row.status,
+                reason=row.reason
+                if row.status == ApplicationStatus.NOT_SELECTED
+                else None,
                 similar_jobs=similar_jobs,
             )
         )

@@ -2,7 +2,7 @@ from datetime import date, datetime
 from typing import Annotated
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, StringConstraints, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
 
 from app.skills.schemas import SkillResponse
 
@@ -67,6 +67,12 @@ class ProfessionalProfileResponse(BaseModel):
     city: str | None = None
     state: str | None = None
     summary: str | None = None
+    accepts_automatic_application: bool = Field(
+        description=(
+            "Whether the professional allows the platform to apply on their behalf "
+            "to compatible jobs (US-20). They can turn it off at any time."
+        )
+    )
     experiences: list[ExperienceResponse]
     education: list[EducationResponse]
     certifications: list[CertificationResponse]
@@ -82,10 +88,11 @@ class ProfessionalProfileUpdateRequest(BaseModel):
     city: TrimmedCity | None = None
     state: TrimmedState | None = None
     summary: TrimmedSummary | None = None
+    accepts_automatic_application: bool | None = None
 
-    @field_validator("full_name", "phone")
+    @field_validator("full_name", "phone", "accepts_automatic_application")
     @classmethod
-    def reject_explicit_null(cls, value: str | None) -> str | None:
+    def reject_explicit_null(cls, value: object) -> object:
         if value is None:
             raise ValueError("This field cannot be cleared.")
         return value

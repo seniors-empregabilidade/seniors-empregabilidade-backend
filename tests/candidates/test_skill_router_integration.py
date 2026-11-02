@@ -8,7 +8,7 @@ from uuid import UUID, uuid4
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from sqlalchemy import delete, select, text
+from sqlalchemy import delete, select, text, update
 
 from app.candidates.schemas.skill_link import SkillSelectionRequest
 from app.candidates.services.skills import replace_skills
@@ -196,6 +196,25 @@ def test_replace_skills_is_persisted(
     ]
     assert response.headers["Cache-Control"] == "no-store"
     assert linked_skills(user_id) == [chosen]
+
+
+def test_an_inactivated_skill_stays_on_the_resume_and_saves_again(
+    client: TestClient, provider: FakeIdentityProvider
+) -> None:
+    user_id = add_candidate()
+    skill_id = add_catalog_skill()
+    client.put(SKILLS_PATH, json={"skill_ids": [str(skill_id)]}, headers=AUTH)
+    with get_session_factory().begin() as session:
+        session.execute(
+            update(Skill).where(Skill.id == skill_id).values(is_active=False)
+        )
+
+    saved = client.put(SKILLS_PATH, json={"skill_ids": [str(skill_id)]}, headers=AUTH)
+    profile = client.get(PROFILE_PATH, headers=AUTH)
+
+    assert saved.status_code == 200
+    assert [skill["id"] for skill in profile.json()["skills"]] == [str(skill_id)]
+    assert linked_skills(user_id) == [skill_id]
 
 
 def test_replaced_skills_are_returned_sorted_by_name(

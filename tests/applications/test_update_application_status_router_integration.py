@@ -41,12 +41,14 @@ pytestmark = pytest.mark.integration
 
 COMPANY_TOKEN = "update-app-status-company"
 OTHER_COMPANY_TOKEN = "update-app-status-other-company"
+CANDIDATE_TOKEN = "update-app-status-candidate"
 
 
 class UpdateAppStatusIdentityProvider(FakeIdentityProvider):
     _SUBJECTS_BY_TOKEN: ClassVar[dict[str, str]] = {
         COMPANY_TOKEN: "subject-update-app-status-company",
         OTHER_COMPANY_TOKEN: "subject-update-app-status-other",
+        CANDIDATE_TOKEN: "subject-update-app-status-candidate",
     }
 
     def verify_access_token(self, token: str) -> str:
@@ -118,7 +120,9 @@ def update_status_scenario(database_session: Session) -> UpdateStatusScenario:
     )
     candidate_user = AppUser(
         email="update-app-status-candidate@candidate.example.invalid",
-        identity_subject=None,
+        identity_subject=UpdateAppStatusIdentityProvider._SUBJECTS_BY_TOKEN[
+            CANDIDATE_TOKEN
+        ],
         user_type=UserType.CANDIDATE,
     )
     database_session.add_all((company_user, other_company_user, candidate_user))
@@ -288,6 +292,18 @@ def test_company_can_move_under_review_to_not_selected_with_reason(
     assert app.status == ApplicationStatus.NOT_SELECTED
     assert app.reason == "Profile does not match requirements."
     assert app.closed_at is not None
+
+    candidate_response = update_status_client.get(
+        "/api/v1/applications/me", headers=auth(CANDIDATE_TOKEN)
+    )
+    assert candidate_response.status_code == 200
+    visible = next(
+        item
+        for item in candidate_response.json()
+        if item["id"] == str(update_status_scenario.under_review_application_id)
+    )
+    assert visible["status"] == "not_selected"
+    assert visible["reason"] == "Profile does not match requirements."
 
 
 def test_company_can_move_in_selection_to_hired(

@@ -11,6 +11,7 @@ from app.account_management.schemas.account_detail_response import (
     AccountSkillResponse,
 )
 from app.account_management.services.list_accounts import MANAGED_USER_TYPES
+from app.candidates.domain.resume_completeness import missing_resume_fields
 from app.db.models import (
     Address,
     Application,
@@ -36,6 +37,8 @@ def get_account(session: Session, account_id: UUID) -> AccountDetailResponse:
             AppUser.account_status,
             AppUser.created_at,
             Candidate.full_name,
+            Candidate.city.label("candidate_city"),
+            Candidate.state.label("candidate_state"),
             Company.trade_name,
             Company.legal_name,
             Company.cnpj,
@@ -80,6 +83,18 @@ def get_account(session: Session, account_id: UUID) -> AccountDetailResponse:
             (row.completion_percentage or 0) if is_candidate else None
         ),
         created_at=row.created_at,
+        missing_fields=list(
+            missing_resume_fields(
+                city=row.candidate_city,
+                state=row.candidate_state,
+                summary=row.summary,
+                has_experience=bool(experiences),
+                has_education=bool(education),
+                has_skill=bool(skills),
+            )
+        )
+        if is_candidate
+        else None,
         application_count=_application_count(session, row.id) if is_candidate else None,
         summary=row.summary if is_candidate else None,
         experiences=experiences,
