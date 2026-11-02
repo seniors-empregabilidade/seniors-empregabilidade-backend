@@ -309,6 +309,29 @@ def test_selecting_an_inactive_skill_anew_changes_nothing(
     assert linked_skills(user_id) == [kept]
 
 
+
+def test_replacing_with_a_kept_and_a_new_inactive_skill_changes_nothing(
+    client: TestClient, provider: FakeIdentityProvider
+) -> None:
+    user_id = add_candidate()
+    kept = add_catalog_skill(OTHER_SKILL_NAME)
+    withdrawn = add_catalog_skill()
+    client.put(SKILLS_PATH, json={"skill_ids": [str(kept)]}, headers=AUTH)
+    inactivate(kept)
+    inactivate(withdrawn)
+
+    response = client.put(
+        SKILLS_PATH,
+        json={"skill_ids": [str(kept), str(withdrawn)]},
+        headers=AUTH,
+    )
+
+    assert response.status_code == 404
+    assert response.headers["content-type"] == "application/problem+json"
+    assert response.json()["code"] == "skill_not_found"
+    assert linked_skills(user_id) == [kept]
+
+
 def test_a_repeated_skill_is_saved_once(
     client: TestClient, provider: FakeIdentityProvider
 ) -> None:
