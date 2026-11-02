@@ -309,7 +309,6 @@ def test_selecting_an_inactive_skill_anew_changes_nothing(
     assert linked_skills(user_id) == [kept]
 
 
-
 def test_replacing_with_a_kept_and_a_new_inactive_skill_changes_nothing(
     client: TestClient, provider: FakeIdentityProvider
 ) -> None:
