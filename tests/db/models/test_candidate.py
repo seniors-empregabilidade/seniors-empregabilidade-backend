@@ -27,5 +27,5 @@ def test_candidate_defaults_are_declared() -> None:
     assert Candidate.__table__.c.availability.server_default.arg == "available"
     assert (
         str(Candidate.__table__.c.accepts_automatic_application.server_default.arg)
-        == "false"
+        == "true"
     )

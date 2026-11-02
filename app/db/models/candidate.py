@@ -43,7 +43,7 @@ class Candidate(Base):
         server_default=AvailabilityStatus.AVAILABLE.value,
     )
     accepts_automatic_application: Mapped[bool] = mapped_column(
-        Boolean, server_default=text("false")
+        Boolean, server_default=text("true")
     )
     terms_version_accepted: Mapped[str | None] = mapped_column(String(20))
     terms_accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

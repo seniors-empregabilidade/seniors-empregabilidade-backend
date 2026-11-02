@@ -5,6 +5,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router
+from app.applications.automatic_application_scheduler import (
+    build_automatic_application_scheduler,
+)
 from app.candidates.domain.certificate_document import MAX_DOCUMENT_BYTES
 from app.core.body_limit import RequestBodyLimitMiddleware
 from app.core.config import Settings, get_settings
@@ -23,9 +26,18 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
     dispatcher = (
         build_email_dispatcher(settings) if settings.email_dispatch_enabled else None
     )
+    scheduler = (
+        build_automatic_application_scheduler(settings)
+        if settings.automatic_application_enabled
+        else None
+    )
     if dispatcher is not None:
         dispatcher.start()
+    if scheduler is not None:
+        scheduler.start()
     yield
+    if scheduler is not None:
+        scheduler.stop()
     if dispatcher is not None:
         dispatcher.stop()
     dispose_engine()

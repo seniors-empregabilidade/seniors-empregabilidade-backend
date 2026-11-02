@@ -12,6 +12,9 @@ LOG_RECORD_FIELDS: Final = (
     "status_code",
     "duration_ms",
     "exception_type",
+    "trigger",
+    "job_count",
+    "application_count",
 )
 
 
