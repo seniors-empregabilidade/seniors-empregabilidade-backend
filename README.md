@@ -193,3 +193,8 @@ editing, closing and reopening, with field errors and transaction guarantees.
 
 See [US-27 support contact](docs/SUPPORT.md) for the public contact endpoint and
 its configuration.
+
+## Company contact with professionals
+
+See [US-29 contact by e-mail](docs/CONTACTS.md) for the contact endpoint, who
+can be contacted, the record it keeps and how the e-mail protects personal data.

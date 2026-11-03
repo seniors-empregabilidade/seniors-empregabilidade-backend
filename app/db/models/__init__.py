@@ -6,6 +6,7 @@ from app.db.models.attached_certificate import AttachedCertificate
 from app.db.models.candidate import Candidate
 from app.db.models.certification import Certification
 from app.db.models.company import Company
+from app.db.models.contact_request import ContactRequest
 from app.db.models.education import Education
 from app.db.models.email_delivery import EmailDelivery
 from app.db.models.enums import (
@@ -49,6 +50,7 @@ __all__ = [
     "Certification",
     "Company",
     "CompanyStatus",
+    "ContactRequest",
     "Education",
     "EmailDelivery",
     "EmailDeliveryStatus",

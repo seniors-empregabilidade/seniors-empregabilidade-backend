@@ -12,3 +12,4 @@ class NotificationType(StrEnum):
     APPLICATION_RECEIVED = "application_received"
     APPLICATION_STATUS_CHANGED = "application_status_changed"
     COMPANY_REGISTRATION_REJECTED = "company_registration_rejected"
+    CONTACT_RECEIVED = "contact_received"

@@ -40,7 +40,12 @@ def dispatch_pending_emails(
         reference_now = now or datetime.now(UTC)
         try:
             claimed = session.execute(
-                select(EmailDelivery, Notification.type, AppUser.email)
+                select(
+                    EmailDelivery,
+                    Notification.type,
+                    Notification.message,
+                    AppUser.email,
+                )
                 .join(Notification, Notification.id == EmailDelivery.notification_id)
                 .join(AppUser, AppUser.id == Notification.user_id)
                 .where(
@@ -55,10 +60,11 @@ def dispatch_pending_emails(
                 session.commit()
                 return attempted
 
-            delivery, notification_type, recipient = claimed
+            delivery, notification_type, message, recipient = claimed
             _send(
                 delivery,
                 notification_type=notification_type,
+                message=message,
                 recipient=recipient,
                 sender=sender,
                 app_url=app_url,
@@ -77,6 +83,7 @@ def _send(
     delivery: EmailDelivery,
     *,
     notification_type: str,
+    message: str,
     recipient: str,
     sender: EmailSender,
     app_url: str,
@@ -92,7 +99,9 @@ def _send(
         delivery.last_error = _UNSUPPORTED_TYPE
         return
 
-    email = notification_email(NotificationType(notification_type), app_url=app_url)
+    email = notification_email(
+        NotificationType(notification_type), app_url=app_url, message=message
+    )
     delivery.attempts += 1
     try:
         sender.send(to=recipient, subject=email.subject, body=email.body)
