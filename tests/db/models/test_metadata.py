@@ -11,6 +11,7 @@ def test_metadata_contains_the_confirmed_domain_schema() -> None:
         "candidate",
         "certification",
         "company",
+        "contact_request",
         "education",
         "email_delivery",
         "event",

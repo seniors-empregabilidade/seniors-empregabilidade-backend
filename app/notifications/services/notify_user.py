@@ -15,7 +15,7 @@ def notify_user(
     type: NotificationType,
     message: str,
     details: dict[str, Any] | None = None,
-) -> None:
+) -> Notification:
     """Record an in-app notification inside the caller's transaction.
 
     This is the single entry point for event producers (company review,
@@ -30,6 +30,9 @@ def notify_user(
     Events listed in `notification_email` also queue an e-mail copy in the
     same transaction. It is only sent after the commit, by the e-mail
     dispatcher, so a provider failure never undoes the in-app notification.
+
+    Returns the pending notification so a producer can link its own record to
+    it (for example a contact request and the result of its e-mail).
     """
     notification = Notification(
         user_id=user_id,
@@ -40,3 +43,4 @@ def notify_user(
     session.add(notification)
     if sends_email(type):
         session.add(EmailDelivery(notification=notification))
+    return notification

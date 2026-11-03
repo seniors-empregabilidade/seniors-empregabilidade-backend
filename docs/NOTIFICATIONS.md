@@ -47,6 +47,7 @@ it is committed.
 | `application_received` | Company that owns the job | `app/applications/services/submit_application.py` |
 | `application_status_changed` | Candidate | `app/applications/services/update_application_status.py` |
 | `company_registration_rejected` | Company | `app/companies/services/review_company.py` |
+| `contact_received` | Candidate | `app/contacts/services/contact_professional.py` (see [CONTACTS.md](CONTACTS.md)) |
 
 `details` carries `application_id` and `job_id` for both application events,
 plus the new `status` for `application_status_changed`. The rejection reason
@@ -102,9 +103,9 @@ To add an event (US-29 contact, matches for companies, ...):
 
 ## E-mail copies
 
-`application_received` and `application_status_changed` also send an e-mail;
-`company_registration_rejected` stays in-app only. The list and the wording
-live in `app/notifications/domain/notification_email.py`.
+`application_received`, `application_status_changed` and `contact_received`
+also send an e-mail; `company_registration_rejected` stays in-app only. The list
+and the wording live in `app/notifications/domain/notification_email.py`.
 
 ### Flow
 
@@ -128,6 +129,11 @@ at least once.
 - The text is generic: no job title, company, candidate, status or reason. It
   says that something changed and links to `APP_PUBLIC_URL`, where the reader
   must sign in to see anything private.
+- Exception: `contact_received` exists to deliver a company's message, so its
+  e-mail repeats the notification message (company name, job title and the
+  company's text, never data of the professional). See
+  [CONTACTS.md](CONTACTS.md). Its footer also says not to reply to the
+  e-mail and to answer the company through the channel given in the message.
 - `email_delivery` stores no address; the recipient is read from `app_user`
   when the message is sent, so an address change is honoured.
 - Logs carry only the event and the provider error code, never the recipient
@@ -183,7 +189,7 @@ way.
 
 - There is no endpoint exposing e-mail delivery status; it is only in the
   database.
-- Producers for US-29 (contact) and company matches land with those stories.
+- Producers for company matches land with that story.
 - A candidate's own withdrawal does not notify the company yet; it was not
   listed among the confirmed events.
 
