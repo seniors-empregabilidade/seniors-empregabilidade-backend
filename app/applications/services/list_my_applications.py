@@ -21,8 +21,14 @@ def list_my_applications(
     *,
     candidate_id: UUID,
     company_name: str | None = None,
+    limit: int | None = None,
     now: datetime | None = None,
 ) -> list[ApplicationSummary]:
+    """List the candidate's applications, most recently submitted first.
+
+    `limit` keeps only the first rows of that order; without it every
+    application is returned.
+    """
     reference_now = now or datetime.now(UTC)
     company_display_name = func.coalesce(Company.trade_name, Company.legal_name)
 
@@ -44,6 +50,8 @@ def list_my_applications(
     )
     if company_name:
         statement = statement.where(company_display_name.ilike(f"%{company_name}%"))
+    if limit is not None:
+        statement = statement.limit(limit)
 
     rows = session.execute(statement).all()
 

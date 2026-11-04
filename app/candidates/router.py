@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.auth.dependencies import require_administrator, require_candidate
 from app.auth.schemas.current_user import CurrentUser
 from app.candidates.domain.certificate_document import MAX_DOCUMENT_BYTES
+from app.candidates.domain.resume_completeness import resume_completion_percentage
 from app.candidates.schemas import (
     CertificationCreateRequest,
     CertificationDocumentLinkResponse,
@@ -404,6 +405,7 @@ def _profile_response(record: ProfileRecord) -> ProfessionalProfileResponse:
         ],
         skills=[_skill_response(item) for item in record.skills],
         missing_fields=list(record.missing_fields),
+        completion_percentage=resume_completion_percentage(record.missing_fields),
     )
 
 

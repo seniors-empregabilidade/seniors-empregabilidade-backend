@@ -1,6 +1,10 @@
 import pytest
 
-from app.candidates.domain.resume_completeness import missing_resume_fields
+from app.candidates.domain.resume_completeness import (
+    RESUME_FIELDS,
+    missing_resume_fields,
+    resume_completion_percentage,
+)
 
 
 def test_all_missing_fields_follow_the_frontend_contract_order() -> None:
@@ -66,3 +70,20 @@ def test_each_collection_is_required(
         has_education=flags[1],
         has_skill=flags[2],
     ) == (field,)
+
+
+@pytest.mark.parametrize(
+    ("missing_count", "percentage"),
+    [(6, 0), (5, 17), (4, 33), (3, 50), (2, 67), (1, 83), (0, 100)],
+)
+def test_completion_percentage_weighs_every_field_equally(
+    missing_count: int, percentage: int
+) -> None:
+    missing = RESUME_FIELDS[:missing_count]
+
+    assert resume_completion_percentage(missing) == percentage
+
+
+def test_completion_percentage_is_100_only_without_missing_fields() -> None:
+    assert resume_completion_percentage(()) == 100
+    assert resume_completion_percentage(("skills",)) < 100

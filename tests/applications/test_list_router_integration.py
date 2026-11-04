@@ -85,6 +85,45 @@ def test_company_name_filter_without_a_match_returns_an_empty_list(
     assert response.json() == []
 
 
+def test_limit_keeps_the_most_recently_submitted_applications(
+    applications_client: TestClient, scenario: ApplicationsScenario
+) -> None:
+    response = applications_client.get(
+        LIST_PATH, params={"limit": 3}, headers=authorization(OWNER_TOKEN)
+    )
+
+    assert response.status_code == 200
+    assert [item["id"] for item in response.json()] == [
+        str(scenario.application_on_already_applied_job_id),
+        str(scenario.application_active_id),
+        str(scenario.application_withdrawn_id),
+    ]
+
+
+def test_limit_never_returns_another_candidates_application(
+    applications_client: TestClient, scenario: ApplicationsScenario
+) -> None:
+    response = applications_client.get(
+        LIST_PATH, params={"limit": 3}, headers=authorization(OTHER_TOKEN)
+    )
+
+    assert [item["id"] for item in response.json()] == [
+        str(scenario.application_other_candidate_id)
+    ]
+
+
+@pytest.mark.parametrize("limit", [0, 101])
+def test_limit_out_of_range_is_rejected(
+    applications_client: TestClient, scenario: ApplicationsScenario, limit: int
+) -> None:
+    response = applications_client.get(
+        LIST_PATH, params={"limit": limit}, headers=authorization(OWNER_TOKEN)
+    )
+
+    assert response.status_code == 422
+    assert "query.limit" in response.json()["errors"]
+
+
 def test_days_in_process_for_an_active_application_counts_up_to_today(
     applications_client: TestClient, scenario: ApplicationsScenario
 ) -> None:

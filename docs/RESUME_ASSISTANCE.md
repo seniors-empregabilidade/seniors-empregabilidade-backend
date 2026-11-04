@@ -11,6 +11,8 @@ guidance use `Cache-Control: no-store`.
 `GET /api/v1/professionals/me` requires a candidate and includes
 `missing_fields`, an ordered array of field keys. It does not return guidance
 notes or contact status. The existing profile response fields remain available.
+It also includes `completion_percentage`, the share of those fields filled in,
+derived from `missing_fields` (see [CANDIDATE_HOME.md](CANDIDATE_HOME.md)).
 
 ## Administrator list
 
@@ -55,7 +57,8 @@ and summary count as present when they contain non-whitespace text. Each
 collection counts as present when it has at least one item. A résumé is
 `complete` when `missing_fields` is empty. Certifications and documents do not
 affect this rule. The existing `completion_percentage` persistence column does
-not define this status and is not returned by these endpoints.
+not define this status and is not returned by these endpoints; the candidate's
+`completion_percentage` response field is computed from `missing_fields`.
 
 **TODO (team decision):** The team has not finalized the full definition of a
 complete résumé, including any required details within each collection or a

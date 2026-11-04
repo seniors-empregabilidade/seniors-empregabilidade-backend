@@ -175,10 +175,18 @@ def read_my_applications(
         str | None,
         Query(min_length=1, max_length=200, description="Partial company name filter"),
     ] = None,
+    limit: Annotated[
+        int | None,
+        Query(
+            ge=1,
+            le=100,
+            description="Return only the most recently submitted applications",
+        ),
+    ] = None,
 ) -> list[ApplicationSummaryResponse]:
     response.headers["Cache-Control"] = "no-store"
     summaries = list_my_applications(
-        session, candidate_id=user.id, company_name=company_name
+        session, candidate_id=user.id, company_name=company_name, limit=limit
     )
     return [_to_response(summary) for summary in summaries]
 

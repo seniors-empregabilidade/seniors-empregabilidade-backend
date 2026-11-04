@@ -78,6 +78,14 @@ class ProfessionalProfileResponse(BaseModel):
     certifications: list[CertificationResponse]
     skills: list[SkillResponse]
     missing_fields: list[str]
+    completion_percentage: int = Field(
+        ge=0,
+        le=100,
+        description=(
+            "Share of the US-08 résumé fields filled in, rounded half up. It is "
+            "derived from missing_fields: 100 exactly when missing_fields is empty."
+        ),
+    )
 
 
 class ProfessionalProfileUpdateRequest(BaseModel):
