@@ -179,6 +179,11 @@ Leia [CONTRIBUTING.md](CONTRIBUTING.md) antes de abrir uma contribuição. Consu
 See [US-14 registration and approval](docs/COMPANY_REGISTRATION.md) for the Cognito
 flow, administrator decision, field errors and local verification.
 
+## Company profile
+
+See [US-30 company profile](docs/COMPANY_PROFILE.md) for reading and editing the
+profile, the read-only CNPJ and the contact e-mail kept apart from the login.
+
 ## Professional registration
 
 See [US-04 professional registration](docs/PROFESSIONAL_REGISTRATION.md) for the

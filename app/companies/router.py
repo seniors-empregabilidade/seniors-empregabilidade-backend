@@ -6,9 +6,14 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Path, Response, status
 from sqlalchemy.orm import Session
 
-from app.auth.dependencies import get_current_user, require_administrator
+from app.auth.dependencies import (
+    get_current_user,
+    require_administrator,
+    require_approved_company,
+)
 from app.auth.schemas.current_user import CurrentUser
 from app.companies.domain.exceptions import (
+    CNPJReadOnlyError,
     CompanySegmentBlockedError,
     InvalidCNPJError,
     InvalidCompanyDecisionError,
@@ -26,18 +31,24 @@ from app.companies.schemas import (
     RegistryRecordResponse,
 )
 from app.companies.schemas.company_approval import CompanyApprovalRequest
+from app.companies.schemas.company_profile_response import CompanyProfileResponse
+from app.companies.schemas.company_profile_update_request import (
+    CompanyProfileUpdateRequest,
+)
 from app.companies.schemas.company_registration_response import (
     CompanyRegistrationResponse,
 )
 from app.companies.schemas.company_status import CompanyStatusResponse
 from app.companies.services.company_registry import CompanyRegistry
 from app.companies.services.company_status import get_company_status
+from app.companies.services.get_company_profile import get_company_profile
 from app.companies.services.register_company import (
     CompanyCNPJConflictError,
     CompanyEmailConflictError,
     register_company,
 )
 from app.companies.services.review_company import review_company
+from app.companies.services.update_company_profile import update_company_profile
 from app.core.config import Settings, get_settings
 from app.core.errors import ProblemException
 from app.core.problem_details import PROBLEM_RESPONSE
@@ -194,6 +205,62 @@ def read_company_status(
 ) -> CompanyStatusResponse:
     response.headers["Cache-Control"] = "no-store"
     return get_company_status(session, user.id)
+
+
+@router.get(
+    "/companies/me/profile",
+    response_model=CompanyProfileResponse,
+    responses={code: PROBLEM_RESPONSE for code in (401, 403)},
+)
+def read_company_profile(
+    response: Response,
+    user: Annotated[CurrentUser, Depends(require_approved_company)],
+    session: Annotated[Session, Depends(get_session)],
+) -> CompanyProfileResponse:
+    """Profile of the authenticated company (US-30). Takes no company id."""
+    response.headers["Cache-Control"] = "no-store"
+    return get_company_profile(session, user.id)
+
+
+@router.put(
+    "/companies/me/profile",
+    response_model=CompanyProfileResponse,
+    responses={code: PROBLEM_RESPONSE for code in (401, 403, 422)},
+)
+def edit_company_profile(
+    request: CompanyProfileUpdateRequest,
+    response: Response,
+    user: Annotated[CurrentUser, Depends(require_approved_company)],
+    session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> CompanyProfileResponse:
+    """Replace the editable profile of the authenticated company (US-30).
+
+    The CNPJ is read-only (`422 cnpj_read_only`), and the contact e-mail never
+    changes the e-mail used to log in.
+    """
+    response.headers["Cache-Control"] = "no-store"
+    try:
+        return update_company_profile(
+            session,
+            user.id,
+            request,
+            personal_email_domains=frozenset(settings.personal_email_domains),
+        )
+    except CNPJReadOnlyError as exc:
+        raise _problem(
+            422,
+            "cnpj_read_only",
+            "The CNPJ cannot be changed. Contact support to change it.",
+            field="cnpj",
+        ) from exc
+    except PersonalEmailDomainError as exc:
+        raise _problem(
+            422,
+            "company_email_domain_blocked",
+            "A corporate email address is required.",
+            field="contact_email",
+        ) from exc
 
 
 @router.patch(
