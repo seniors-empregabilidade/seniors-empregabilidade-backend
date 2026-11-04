@@ -43,6 +43,11 @@ class Company(Base):
     corporate_email_confirmed: Mapped[bool] = mapped_column(
         Boolean, server_default=text("false")
     )
+    # Business contact shown on the profile (US-30). Kept apart from
+    # `corporate_email`, which is the login e-mail; `null` until the company
+    # edits its profile, and read as the login e-mail meanwhile.
+    contact_email: Mapped[str | None] = mapped_column(String(150))
+    contact_phone: Mapped[str | None] = mapped_column(String(20))
     company_size: Mapped[str | None] = mapped_column(String(30))
     industry: Mapped[str | None] = mapped_column(String(100))
     linkedin_url: Mapped[str | None] = mapped_column(Text)

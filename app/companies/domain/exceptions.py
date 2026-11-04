@@ -12,3 +12,7 @@ class PersonalEmailDomainError(ValueError):
 
 class InvalidCompanyDecisionError(ValueError):
     """A rejection must explain the decision; an approval must not include a reason."""
+
+
+class CNPJReadOnlyError(ValueError):
+    """A company cannot change its CNPJ after registration."""
