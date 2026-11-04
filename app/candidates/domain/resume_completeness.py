@@ -1,5 +1,7 @@
 """Provisional résumé completeness rule shared by candidate and admin views."""
 
+RESUME_FIELDS = ("city", "state", "summary", "experiences", "education", "skills")
+
 
 def missing_resume_fields(
     *,
@@ -24,3 +26,13 @@ def missing_resume_fields(
     if not has_skill:
         missing.append("skills")
     return tuple(missing)
+
+
+def resume_completion_percentage(missing_fields: tuple[str, ...]) -> int:
+    """Share of `RESUME_FIELDS` filled in, from 0 to 100, rounded half up.
+
+    It is derived from the same missing-field rule, so 100 means exactly that
+    `missing_fields` is empty. Each field weighs the same.
+    """
+    filled = len(RESUME_FIELDS) - len(missing_fields)
+    return (filled * 200 + len(RESUME_FIELDS)) // (2 * len(RESUME_FIELDS))

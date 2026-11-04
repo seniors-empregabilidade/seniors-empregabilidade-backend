@@ -124,6 +124,23 @@ def test_profile_exposes_the_candidates_own_missing_fields(
         "education",
         "skills",
     ]
+    # City and state are filled: 2 of the 6 US-08 fields.
+    assert response.json()["completion_percentage"] == 33
+
+
+def test_completion_percentage_follows_profile_edits(
+    client: TestClient, provider: FakeIdentityProvider
+) -> None:
+    add_candidate()
+
+    patched = client.patch(
+        PROFILE_PATH, json={"summary": "Experienced professional"}, headers=AUTH
+    )
+    fetched = client.get(PROFILE_PATH, headers=AUTH)
+
+    assert patched.json()["completion_percentage"] == 50
+    assert fetched.json()["completion_percentage"] == 50
+    assert "summary" not in fetched.json()["missing_fields"]
 
 
 def test_profile_requires_a_token(

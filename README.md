@@ -203,3 +203,8 @@ its configuration.
 
 See [US-29 contact by e-mail](docs/CONTACTS.md) for the contact endpoint, who
 can be contacted, the record it keeps and how the e-mail protects personal data.
+
+## Candidate home summary
+
+See [US-32 candidate home](docs/CANDIDATE_HOME.md) for the three existing
+endpoints that feed the home page cards and what this task added to them.

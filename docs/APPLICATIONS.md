@@ -21,7 +21,8 @@ domain.
    job title, the company display name (trade name, falling back to legal
    name), the submission date, days in process, and status. An optional
    `company_name` query parameter filters by a case-insensitive partial match
-   against that same company display name.
+   against that same company display name. An optional `limit` (1 to 100)
+   keeps only the most recently submitted applications (US-32).
 3. `POST /api/v1/applications/{application_id}/withdraw` requires
    `require_candidate`. It moves an active application (`applied`,
    `under_review` or `in_selection_process`) to `withdrawn` and stamps
