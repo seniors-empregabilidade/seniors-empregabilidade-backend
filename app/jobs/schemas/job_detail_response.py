@@ -13,6 +13,8 @@ class JobDetailResponse(BaseModel):
     description: str
     company_id: UUID
     company_name: str
+    company_industry: str | None
+    company_city: str | None
     skills: list[SkillResponse]
     work_mode: WorkMode
     location: str | None

@@ -46,6 +46,7 @@ the same body, with `Cache-Control: no-store`:
   Until a company edits its profile, `contact_email` is `null` and the API
   shows the login e-mail.
 - The CNPJ, the approval status and the identity credentials stay as they are.
-- Jobs read the company name live (`trade_name`, falling back to `legal_name`),
-  so they show the new name as soon as the edit commits. Jobs do not show the
-  company's industry or city today; a job's `location` is set per job.
+- Jobs read the company live, so `GET /jobs` and `GET /jobs/{job_id}` show the
+  new `company_name` (`trade_name`, falling back to `legal_name`),
+  `company_industry` and `company_city` (from the company address) as soon as
+  the edit commits. A job's own `location` is set per job and is not changed.

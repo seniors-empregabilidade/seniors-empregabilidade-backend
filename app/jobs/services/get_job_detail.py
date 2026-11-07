@@ -5,7 +5,7 @@ from uuid import UUID
 from sqlalchemy import exists, func, select
 from sqlalchemy.orm import Session
 
-from app.db.models import Application, AppUser, Company, Job
+from app.db.models import Address, Application, AppUser, Company, Job
 from app.db.models.enums import JobStatus, WorkMode
 from app.jobs.exceptions import JobNotFoundError
 from app.jobs.services.job_skills import skills_by_job
@@ -22,6 +22,8 @@ class JobDetail:
     description: str
     company_id: UUID
     company_name: str
+    company_industry: str | None
+    company_city: str | None
     skills: list[CatalogSkill]
     work_mode: WorkMode
     location: str | None
@@ -56,6 +58,8 @@ def get_job_detail(
         select(
             Job,
             func.coalesce(Company.trade_name, Company.legal_name).label("company_name"),
+            Company.industry.label("company_industry"),
+            Address.city.label("company_city"),
             exists()
             .where(
                 Application.job_id == Job.id,
@@ -66,6 +70,7 @@ def get_job_detail(
         )
         .join(Company, Company.id == Job.company_id)
         .join(AppUser, AppUser.id == Company.id)
+        .outerjoin(Address, Address.id == Company.address_id)
         .where(
             Job.id == job_id,
             Job.status.not_in(_NOT_PUBLIC_STATUSES),
@@ -86,6 +91,8 @@ def get_job_detail(
         description=job.description,
         company_id=job.company_id,
         company_name=row.company_name,
+        company_industry=row.company_industry,
+        company_city=row.company_city,
         skills=skills_by_job([job.id], session=session)[job.id],
         work_mode=job.work_mode,
         location=job.location,
