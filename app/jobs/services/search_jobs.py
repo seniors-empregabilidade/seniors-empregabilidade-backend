@@ -7,7 +7,16 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.db.models import AppUser, Company, Job, JobSkill, Resume, ResumeSkill, Skill
+from app.db.models import (
+    Address,
+    AppUser,
+    Company,
+    Job,
+    JobSkill,
+    Resume,
+    ResumeSkill,
+    Skill,
+)
 from app.db.models.enums import WorkMode
 from app.jobs.domain.policies.days_since_published import days_since_published
 from app.jobs.domain.policies.skill_match import match_skills
@@ -20,6 +29,8 @@ class FoundJob:
     id: UUID
     title: str
     company_name: str
+    company_industry: str | None
+    company_city: str | None
     location: str | None
     work_mode: WorkMode
     salary_max: Decimal | None
@@ -67,6 +78,8 @@ def search_jobs(
             Job.id,
             Job.title,
             company_display_name.label("company_name"),
+            Company.industry.label("company_industry"),
+            Address.city.label("company_city"),
             Job.location,
             Job.work_mode,
             Job.salary_max,
@@ -74,9 +87,10 @@ def search_jobs(
         )
         .join(Company, Company.id == Job.company_id)
         .join(AppUser, AppUser.id == Company.id)
+        .outerjoin(Address, Address.id == Company.address_id)
         .outerjoin(JobSkill, JobSkill.job_id == Job.id)
         .where(is_open_at(reference_now), publishing_company_is_not_blocked())
-        .group_by(Job.id, Company.id)
+        .group_by(Job.id, Company.id, Address.id)
         .order_by(
             matched_skill_count.desc(),
             Job.published_at.desc().nulls_last(),
@@ -106,6 +120,8 @@ def search_jobs(
                 id=row.id,
                 title=row.title,
                 company_name=row.company_name,
+                company_industry=row.company_industry,
+                company_city=row.company_city,
                 location=row.location,
                 work_mode=row.work_mode,
                 salary_max=row.salary_max,
