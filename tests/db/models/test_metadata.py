@@ -25,4 +25,6 @@ def test_metadata_contains_the_confirmed_domain_schema() -> None:
         "resume_skill",
         "skill",
         "training",
+        "training_job",
+        "training_skill",
     }

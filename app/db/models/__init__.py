@@ -35,6 +35,8 @@ from app.db.models.resume_guidance import ResumeGuidance
 from app.db.models.resume_skill import ResumeSkill
 from app.db.models.skill import Skill
 from app.db.models.training import Training
+from app.db.models.training_job import TrainingJob
+from app.db.models.training_skill import TrainingSkill
 
 __all__ = [
     "AccountStatus",
@@ -69,7 +71,9 @@ __all__ = [
     "Skill",
     "SkillType",
     "Training",
+    "TrainingJob",
     "TrainingMode",
+    "TrainingSkill",
     "UserType",
     "WorkMode",
 ]
