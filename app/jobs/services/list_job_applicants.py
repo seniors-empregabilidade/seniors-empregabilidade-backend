@@ -18,7 +18,12 @@ from app.db.models import (
     ResumeSkill,
     Skill,
 )
-from app.db.models.enums import AccountStatus, ApplicationStatus, AvailabilityStatus
+from app.db.models.enums import (
+    AccountStatus,
+    ApplicationStatus,
+    ApplicationType,
+    AvailabilityStatus,
+)
 from app.jobs.domain.candidate_origin import CandidateOrigin
 from app.jobs.domain.policies.automatic_match_policy import is_automatic_match
 from app.jobs.domain.policies.job_compatibility_policy import JobCompatibilityPolicy
@@ -53,13 +58,16 @@ class CompatibilitySkill:
 class JobApplicant:
     """One professional in a job's list: an applicant or an automatic match.
 
-    An automatic match has no application, so ``application_id``, ``status`` and
-    ``match_score`` are ``None``. The compatibility fields come from the same
-    engine for both origins.
+    An automatic match has no application, so ``application_id``,
+    ``application_type``, ``status`` and ``match_score`` are ``None``. An
+    application keeps its ``application_type``: ``active`` when the professional
+    applied, ``automatic`` when the platform applied on their behalf. The
+    compatibility fields come from the same engine for both origins.
     """
 
     origin: CandidateOrigin
     application_id: UUID | None
+    application_type: ApplicationType | None
     status: ApplicationStatus | None
     match_score: int | None
     compatibility_percentage: Decimal | None
@@ -107,8 +115,10 @@ def list_job_applicants(
     ``JobNotFoundError`` (404). No personal data beyond what is needed for the
     evaluation (name, city, state) is exposed, whatever the origin.
 
-    Every applicant is listed with ``origin`` ``application``. A professional who
-    did not apply is listed with ``origin`` ``automatic_match`` when
+    Every applicant is listed with ``origin`` ``application``, whether the
+    professional applied or the platform applied on their behalf
+    (``application_type`` tells them apart). A professional with no application
+    is listed with ``origin`` ``automatic_match`` when
     ``is_automatic_match`` accepts their score (US-20); only active accounts that
     declare themselves available are considered.
 
@@ -133,6 +143,7 @@ def list_job_applicants(
         select(
             Application.id.label("application_id"),
             Application.candidate_id,
+            Application.type.label("application_type"),
             Application.status,
             Application.match_score,
             Candidate.full_name,
@@ -283,6 +294,7 @@ def _scored_applicant(
     return JobApplicant(
         origin=CandidateOrigin.APPLICATION,
         application_id=row.application_id,
+        application_type=row.application_type,
         status=row.status,
         match_score=row.match_score,
         compatibility_percentage=score.percentage,
@@ -301,6 +313,7 @@ def _automatic_match(
     return JobApplicant(
         origin=CandidateOrigin.AUTOMATIC_MATCH,
         application_id=None,
+        application_type=None,
         status=None,
         match_score=None,
         compatibility_percentage=score.percentage,
@@ -317,6 +330,7 @@ def _unscored_applicant(row: Row[Any]) -> JobApplicant:
     return JobApplicant(
         origin=CandidateOrigin.APPLICATION,
         application_id=row.application_id,
+        application_type=row.application_type,
         status=row.status,
         match_score=row.match_score,
         compatibility_percentage=None,

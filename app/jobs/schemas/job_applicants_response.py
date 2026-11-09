@@ -4,7 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from app.db.models.enums import ApplicationStatus
+from app.db.models.enums import ApplicationStatus, ApplicationType
 from app.jobs.domain.candidate_origin import CandidateOrigin
 
 
@@ -25,14 +25,25 @@ class JobApplicantResponse(BaseModel):
         CandidateOrigin,
         Field(
             description=(
-                "application: the professional applied to the job. automatic_match: "
-                "a compatible profile (50% or more) that has not applied. The origin "
-                "never changes compatibility_percentage."
+                "application: the professional has an application to the job, made "
+                "by them or by the platform (see application_type). "
+                "automatic_match: a compatible profile (50% or more) with no "
+                "application. The origin never changes compatibility_percentage."
             )
         ),
     ]
     application_id: Annotated[
         UUID | None, Field(description="Null for an automatic match.")
+    ]
+    application_type: Annotated[
+        ApplicationType | None,
+        Field(
+            description=(
+                "active: the professional applied. automatic: the platform applied "
+                "on their behalf (automatic application). Null for an automatic "
+                "match."
+            )
+        ),
     ]
     status: Annotated[
         ApplicationStatus | None, Field(description="Null for an automatic match.")

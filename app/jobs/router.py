@@ -240,6 +240,7 @@ def _job_applicant_response(applicant: JobApplicant) -> JobApplicantResponse:
     return JobApplicantResponse(
         origin=applicant.origin,
         application_id=applicant.application_id,
+        application_type=applicant.application_type,
         status=applicant.status,
         match_score=applicant.match_score,
         compatibility_percentage=applicant.compatibility_percentage,
