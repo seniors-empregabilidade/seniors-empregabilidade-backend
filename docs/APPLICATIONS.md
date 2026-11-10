@@ -162,7 +162,9 @@ Rules:
   `(candidate_id, job_id)` unique constraint, so overlapping runs cannot create two.
 - The application is stored with `type = automatic`, `status = under_review` and
   the requirement counts, exactly like a manual one otherwise. It does not notify
-  the company: it appears in the job's applicants list (US-20).
+  the company: it appears in the job's applicants list (US-20) with
+  `origin: application` and `application_type: automatic`, so the company can
+  tell it from one the professional made (`active`).
 
 | Variable | Default | Effect |
 | --- | --- | --- |

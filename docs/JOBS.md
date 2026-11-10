@@ -153,13 +153,19 @@ stores at submission time.
 The same list also shows professionals who did not apply but are compatible
 with the job, and every row carries an `origin`:
 
-- `application`: the professional applied, whatever the application status
-  (a withdrawn applicant is still an application).
-- `automatic_match`: the professional has not applied and the compatibility
+- `application`: the professional has an application to the job, whatever its
+  status (a withdrawn applicant is still an application). `application_type`
+  says who made it: `active` when the professional applied, `automatic` when the
+  platform applied on their behalf (see "Automatic applications" in
+  [APPLICATIONS.md](APPLICATIONS.md)). Both are real applications the company
+  manages in the same way.
+- `automatic_match`: the professional has no application and the compatibility
   engine highlights them (50% or more, `is_automatic_match` in
   `app.jobs.domain.policies.automatic_match_policy`). Only candidates whose
   account is `active` and whose `availability` is `available` are considered.
-  `application_id`, `status` and `match_score` are `null`.
+  `application_id`, `application_type`, `status` and `match_score` are `null`.
+  This covers professionals under the automatic application threshold (70% by
+  default) and those who turned the automatic application preference off.
 
 Both origins go through the same `JobCompatibilityPolicy` with the same inputs,
 so applying never changes `compatibility_percentage`, `is_highlighted` or the
@@ -176,6 +182,14 @@ professional is a separate story (US-29).
 
 The header keeps `total_applicant_count` and `full_match_count` for
 applications only and adds `automatic_match_count`.
+
+`tests/jobs/test_applicant_origin_end_to_end_integration.py` (US-20-T03) runs the
+whole path through the API: the company publishes a job, professionals choose
+their skills and preference, the automatic application round runs, one
+professional applies, and the company reads the list. It checks each origin and
+`application_type`, the same percentage for the same skills whatever the origin
+(also after a match applies), that no contact or identification data appears for
+any origin, and that only the owning company can read the list.
 
 ### Automatic application opt-in (US-20-T05)
 
