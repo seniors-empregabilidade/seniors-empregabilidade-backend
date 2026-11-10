@@ -14,6 +14,8 @@ from app.password_reset.router import router as password_reset_router
 from app.skills.admin_router import router as skill_catalog_router
 from app.skills.router import router as skills_router
 from app.support.router import router as support_router
+from app.trainings.admin_router import router as training_catalog_router
+from app.trainings.router import router as trainings_router
 
 api_router = APIRouter()
 api_router.include_router(account_management_router)
@@ -30,3 +32,5 @@ api_router.include_router(password_reset_router)
 api_router.include_router(skill_catalog_router)
 api_router.include_router(skills_router)
 api_router.include_router(support_router)
+api_router.include_router(training_catalog_router)
+api_router.include_router(trainings_router)

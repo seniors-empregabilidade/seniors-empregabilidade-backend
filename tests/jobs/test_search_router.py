@@ -315,6 +315,8 @@ def test_each_job_carries_its_listing_data_and_nothing_private(
         "id",
         "title",
         "company_name",
+        "company_industry",
+        "company_city",
         "location",
         "work_mode",
         "salary_max",

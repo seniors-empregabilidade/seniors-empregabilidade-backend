@@ -16,10 +16,11 @@ Candidates find published jobs through `GET /jobs`, described in
 `GET /api/v1/jobs/{job_id}` requires `require_candidate` (`401` anonymous,
 `403 candidate_required` otherwise) and is sent with `Cache-Control: no-store`.
 It returns `id`, `title`, `description`, `company_id`, `company_name` (trade
-name, else legal name), `skills` (`id`, `name`, `type`: the job has no separate
-requirements field, so `hard` skills are the requirements and `soft` ones the
-competencies), `work_mode`, `location`, `closing_date` (the deadline), `status`,
-`published_at`, and the candidate's state:
+name, else legal name), `company_industry` and `company_city` (null when the
+company has none, read live like the name), `skills` (`id`, `name`, `type`: the
+job has no separate requirements field, so `hard` skills are the requirements
+and `soft` ones the competencies), `work_mode`, `location`, `closing_date` (the
+deadline), `status`, `published_at`, and the candidate's state:
 
 | Field | Meaning |
 | --- | --- |
