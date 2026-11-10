@@ -1,8 +1,9 @@
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from app.core.local_date import to_local_date
 from app.db.models import Job, JobSkill
 from app.db.models.enums import JobStatus
 from app.jobs.exceptions import ClosingDateInThePastError
@@ -16,12 +17,10 @@ def publish_job(
     *,
     session: Session,
     company_id: UUID,
-    today: date | None = None,
     now: datetime | None = None,
 ) -> JobRecord:
-    reference_date = today or date.today()
     published_at = now or datetime.now(UTC)
-    if request.closing_date < reference_date:
+    if request.closing_date < to_local_date(published_at):
         raise ClosingDateInThePastError
 
     job = Job(

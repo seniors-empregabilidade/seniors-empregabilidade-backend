@@ -63,7 +63,7 @@ All paths start with `/api/v1`.
   its stored type; an unknown name creates a catalog skill with the given type.
   See [SKILL_CATALOG.md](SKILL_CATALOG.md).
 - `work_mode`: `onsite`, `hybrid` or `remote`.
-- `closing_date`: today or later.
+- `closing_date`: today or later, in `America/Sao_Paulo`.
 
 Every endpoint returns the same job shape: `id`, `company_id`, `title`,
 `description`, `skills` (`id`, `name`, `type`), `work_mode`, `closing_date`,
@@ -226,7 +226,3 @@ idempotency key yet.
 
 - `GET /jobs/me` has no pagination or filters.
 - `application_count` counts withdrawn and closed applications too.
-- `POST /jobs` compares `closing_date` with the server's calendar date, not the
-  `America/Sao_Paulo` date (`app.core.local_date`) that decides whether a job
-  is open, so late in the evening in Brazil a closing date of "today" can be
-  rejected as past. The status change already uses the local date.
