@@ -85,6 +85,20 @@ def test_company_name_filter_without_a_match_returns_an_empty_list(
     assert response.json() == []
 
 
+@pytest.mark.parametrize("wildcard", ["%", "_"])
+def test_company_name_filter_treats_like_wildcards_as_text(
+    applications_client: TestClient, scenario: ApplicationsScenario, wildcard: str
+) -> None:
+    response = applications_client.get(
+        LIST_PATH,
+        params={"company_name": wildcard},
+        headers=authorization(OWNER_TOKEN),
+    )
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+
 def test_limit_keeps_the_most_recently_submitted_applications(
     applications_client: TestClient, scenario: ApplicationsScenario
 ) -> None:
