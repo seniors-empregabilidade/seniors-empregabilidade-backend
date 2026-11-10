@@ -12,6 +12,8 @@ class JobSearchResultResponse(BaseModel):
     id: UUID
     title: str
     company_name: str
+    company_industry: str | None
+    company_city: str | None
     location: str | None
     work_mode: WorkMode
     salary_max: Decimal | None

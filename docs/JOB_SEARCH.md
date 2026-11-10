@@ -3,7 +3,8 @@
 This endpoint lets an authenticated candidate search open jobs by title and see,
 for each one, how many of its required skills the candidate's résumé meets and
 which ones are missing. It reuses the `job`, `job_skill`, `skill`, `company`,
-`resume` and `resume_skill` persistence models; it adds no table or column.
+`address`, `resume` and `resume_skill` persistence models; it adds no table or
+column.
 
 ## Endpoint
 
@@ -32,7 +33,9 @@ Each item:
 | Field | Meaning |
 | --- | --- |
 | `id`, `title` | The job. |
-| `company_name` | The company's trade name, or its legal name when it has none. No other company field is returned. |
+| `company_name` | The company's trade name, or its legal name when it has none. |
+| `company_industry` | Nullable. The company's industry, as written in its profile. |
+| `company_city` | Nullable. The city of the company's address; `null` when the company has no address. |
 | `location` | Nullable. See known gaps. |
 | `work_mode` | `onsite`, `hybrid` or `remote`. |
 | `salary_max` | Nullable decimal string with two places. The job stores only a ceiling, not a range. |
@@ -50,6 +53,8 @@ Example, `GET /api/v1/jobs?search=analyst&limit=20&offset=0`:
     "id": "00000000-0000-4000-8000-00000000f001",
     "title": "Python Data Analyst",
     "company_name": "Example Company",
+    "company_industry": "Technology",
+    "company_city": "Porto Alegre",
     "location": "Porto Alegre",
     "work_mode": "hybrid",
     "salary_max": "6500.00",

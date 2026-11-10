@@ -3,6 +3,7 @@
 from collections.abc import Iterator
 from datetime import UTC, date, datetime, timedelta
 from typing import Any, ClassVar
+from uuid import UUID
 
 import pytest
 from fastapi import FastAPI
@@ -353,12 +354,9 @@ def test_only_approved_companies_reach_the_profile(
     assert response.json()["code"] == "approved_company_required"
 
 
-def test_jobs_show_the_updated_company_name(
-    profile_client: TestClient, database_session: Session, owner: Company
-) -> None:
-    _candidate(database_session)
+def _published_job(session: Session, company_id: UUID) -> Job:
     job = Job(
-        company_id=owner.id,
+        company_id=company_id,
         title="Synthetic Role",
         description="Synthetic role for profile tests.",
         work_mode=WorkMode.REMOTE,
@@ -366,12 +364,61 @@ def test_jobs_show_the_updated_company_name(
         published_at=datetime.now(UTC),
         closing_date=date.today() + timedelta(days=30),
     )
-    database_session.add(job)
-    database_session.commit()
+    session.add(job)
+    session.commit()
+    return job
 
-    profile_client.put(PROFILE_PATH, json=_payload(), headers=_auth(OWNER_TOKEN))
+
+def _company_in_search(client: TestClient, job: Job) -> dict[str, Any]:
+    found = client.get("/api/v1/jobs", headers=_auth(CANDIDATE_TOKEN))
+    assert found.status_code == 200
+    return next(item for item in found.json() if item["id"] == str(job.id))
+
+
+def test_jobs_show_the_updated_company_name_industry_and_city(
+    profile_client: TestClient, database_session: Session, owner: Company
+) -> None:
+    _candidate(database_session)
+    job = _published_job(database_session, owner.id)
+
+    saved = profile_client.put(
+        PROFILE_PATH,
+        json=_payload(
+            display_name="Marca Atualizada",
+            industry="Logística",
+            address={**_payload()["address"], "city": "Canoas"},
+        ),
+        headers=_auth(OWNER_TOKEN),
+    )
+
+    assert saved.status_code == 200
+    detail = profile_client.get(
+        f"/api/v1/jobs/{job.id}", headers=_auth(CANDIDATE_TOKEN)
+    ).json()
+    searched = _company_in_search(profile_client, job)
+    for shown in (detail, searched):
+        assert shown["company_name"] == "Marca Atualizada"
+        assert shown["company_industry"] == "Logística"
+        assert shown["company_city"] == "Canoas"
+
+
+def test_jobs_of_a_company_without_address_or_industry_show_nulls(
+    profile_client: TestClient, database_session: Session
+) -> None:
+    company = _company(
+        database_session,
+        OTHER_TOKEN,
+        cnpj="11444777000161",
+        email="login@profile-other.example.invalid",
+        with_address=False,
+    )
+    _candidate(database_session)
+    job = _published_job(database_session, company.id)
 
     detail = profile_client.get(
         f"/api/v1/jobs/{job.id}", headers=_auth(CANDIDATE_TOKEN)
-    )
-    assert detail.json()["company_name"] == "Nova Marca"
+    ).json()
+    searched = _company_in_search(profile_client, job)
+    for shown in (detail, searched):
+        assert shown["company_industry"] is None
+        assert shown["company_city"] is None

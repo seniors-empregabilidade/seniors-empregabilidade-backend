@@ -143,6 +143,8 @@ def list_open_jobs(
             id=job.id,
             title=job.title,
             company_name=job.company_name,
+            company_industry=job.company_industry,
+            company_city=job.company_city,
             location=job.location,
             work_mode=job.work_mode,
             salary_max=job.salary_max,
@@ -183,6 +185,8 @@ def read_job_detail(
         description=detail.description,
         company_id=detail.company_id,
         company_name=detail.company_name,
+        company_industry=detail.company_industry,
+        company_city=detail.company_city,
         skills=[
             SkillResponse(id=skill.id, name=skill.name, type=skill.type)
             for skill in detail.skills
