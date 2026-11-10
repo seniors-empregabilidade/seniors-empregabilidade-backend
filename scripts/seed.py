@@ -273,7 +273,7 @@ def seed_database(session: Session) -> None:
         id=seed_id("notification-local"),
         user_id=candidate_id,
         type="local_welcome",
-        message="Welcome to the local demo environment.",
+        message="Boas-vindas ao ambiente de demonstração da Seniors.",
         read=False,
         details={"source": "local_seed"},
         created_at=now,

@@ -49,7 +49,10 @@ def list_my_applications(
         .order_by(Application.created_at.desc(), Application.id)
     )
     if company_name:
-        statement = statement.where(company_display_name.ilike(f"%{company_name}%"))
+        # autoescape keeps "%" and "_" literal instead of LIKE wildcards.
+        statement = statement.where(
+            company_display_name.icontains(company_name, autoescape=True)
+        )
     if limit is not None:
         statement = statement.limit(limit)
 
