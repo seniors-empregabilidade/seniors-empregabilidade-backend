@@ -11,3 +11,7 @@ class DocumentStorage(Protocol):
     ) -> str:
         """Return a short-lived URL that downloads the object as an attachment."""
         ...
+
+    def inline_url(self, key: str, *, content_type: str, expires_in: int) -> str:
+        """Return a short-lived URL that serves the object inline."""
+        ...

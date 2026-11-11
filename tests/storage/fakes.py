@@ -25,3 +25,7 @@ class FakeDocumentStorage:
     ) -> str:
         self._call("download_url")
         return f"https://storage.example.invalid/{key}?expires_in={expires_in}"
+
+    def inline_url(self, key: str, *, content_type: str, expires_in: int) -> str:
+        self._call("inline_url")
+        return f"https://storage.example.invalid/{key}?expires_in={expires_in}"

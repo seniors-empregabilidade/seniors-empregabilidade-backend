@@ -70,6 +70,21 @@ class S3DocumentStorage:
         except (BotoCoreError, ClientError) as exc:
             raise DocumentStorageUnavailableError from exc
 
+    def inline_url(self, key: str, *, content_type: str, expires_in: int) -> str:
+        self._require_bucket()
+        try:
+            return self._client.generate_presigned_url(
+                "get_object",
+                Params={
+                    "Bucket": self._bucket,
+                    "Key": key,
+                    "ResponseContentType": content_type,
+                },
+                ExpiresIn=expires_in,
+            )
+        except (BotoCoreError, ClientError) as exc:
+            raise DocumentStorageUnavailableError from exc
+
     def _require_bucket(self) -> None:
         # Checked per call so certification CRUD works where no bucket is set.
         if not self._bucket:
