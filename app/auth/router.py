@@ -7,7 +7,8 @@ from app.auth.dependencies import get_current_user
 from app.auth.schemas.current_user import CurrentUser
 from app.auth.schemas.login_request import LoginRequest
 from app.auth.schemas.login_response import LoginResponse
-from app.auth.services.login import authenticate_user
+from app.auth.schemas.refresh_request import RefreshRequest
+from app.auth.services.login import authenticate_user, refresh_session
 from app.core.problem_details import PROBLEM_RESPONSE
 from app.core.rate_limit import SENSITIVE_LIMIT, limiter
 from app.db.session import get_session
@@ -33,6 +34,18 @@ def login(
     session: Annotated[Session, Depends(get_session)],
 ) -> LoginResponse:
     result = authenticate_user(payload, provider=provider, session=session)
+    response.headers["Cache-Control"] = "no-store"
+    return result
+
+
+@router.post("/refresh", response_model=LoginResponse)
+def refresh(
+    payload: RefreshRequest,
+    response: Response,
+    provider: Annotated[IdentityProvider, Depends(get_identity_provider)],
+    session: Annotated[Session, Depends(get_session)],
+) -> LoginResponse:
+    result = refresh_session(payload, provider=provider, session=session)
     response.headers["Cache-Control"] = "no-store"
     return result
 
