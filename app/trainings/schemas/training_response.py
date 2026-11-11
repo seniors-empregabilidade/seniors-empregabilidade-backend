@@ -4,6 +4,7 @@ from pydantic import BaseModel
 
 from app.db.models.enums import TrainingMode
 from app.skills.schemas import SkillResponse
+from app.trainings.schemas.training_job_response import TrainingJobResponse
 
 
 class TrainingResponse(BaseModel):
@@ -15,3 +16,4 @@ class TrainingResponse(BaseModel):
     published: bool
     skills: list[SkillResponse]
     job_ids: list[UUID]
+    jobs: list[TrainingJobResponse]
