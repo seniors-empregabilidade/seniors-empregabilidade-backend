@@ -548,3 +548,80 @@ def test_every_confirmation_failure_is_handled_by_an_explicit_mapping() -> None:
         "UserNotFoundException",
     }
     assert unmapped == set()
+
+
+def refresh_result(key: rsa.RSAPrivateKey, **extra: str) -> dict[str, Any]:
+    return {
+        "AuthenticationResult": {
+            "AccessToken": access_token(key),
+            "IdToken": "synthetic-id",
+            "ExpiresIn": 900,
+            "TokenType": "Bearer",
+            **extra,
+        }
+    }
+
+
+def test_refresh_hashes_the_username_of_an_expired_access_token(
+    provider: CognitoIdentityProvider,
+    stub: Stubber,
+    key: rsa.RSAPrivateKey,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    use_local_key(provider, key, monkeypatch)
+    provider._client_secret = "synthetic-secret"
+    digest = hmac.new(
+        b"synthetic-secret", (SUBJECT + CLIENT).encode(), hashlib.sha256
+    ).digest()
+    stub.add_response(
+        "initiate_auth",
+        refresh_result(key),
+        {
+            "ClientId": CLIENT,
+            "AuthFlow": "REFRESH_TOKEN_AUTH",
+            "AuthParameters": {
+                "REFRESH_TOKEN": "synthetic-refresh",
+                "SECRET_HASH": base64.b64encode(digest).decode(),
+            },
+        },
+    )
+    expired = access_token(
+        key,
+        username=SUBJECT,
+        exp=datetime.now(UTC) - timedelta(hours=1),
+        iat=datetime.now(UTC) - timedelta(hours=2),
+    )
+    result = provider.refresh(
+        refresh_token="synthetic-refresh", expired_access_token=expired
+    )
+    assert result.identity_subject == SUBJECT
+    assert result.tokens.refresh_token is None
+    assert "synthetic-refresh" not in repr(result)
+
+
+def test_refresh_rejects_a_forged_access_token(
+    provider: CognitoIdentityProvider,
+    key: rsa.RSAPrivateKey,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    use_local_key(provider, key, monkeypatch)
+    forged = access_token(
+        rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    )
+    with pytest.raises(InvalidAccessTokenError):
+        provider.refresh(refresh_token="synthetic-refresh", expired_access_token=forged)
+
+
+def test_refresh_with_a_revoked_token_is_invalid_credentials(
+    provider: CognitoIdentityProvider,
+    stub: Stubber,
+    key: rsa.RSAPrivateKey,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    use_local_key(provider, key, monkeypatch)
+    stub.add_client_error("initiate_auth", service_error_code="NotAuthorizedException")
+    with pytest.raises(ProblemException) as error:
+        provider.refresh(
+            refresh_token="synthetic-refresh", expired_access_token=access_token(key)
+        )
+    assert error.value.code == "invalid_credentials"

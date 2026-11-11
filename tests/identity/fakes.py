@@ -25,6 +25,14 @@ class FakeIdentityProvider:
             self.subject, IdentityTokens("access", "id", "refresh", 900, "Bearer")
         )
 
+    def refresh(
+        self, *, refresh_token: str, expired_access_token: str
+    ) -> AuthenticatedIdentity:
+        self._call("refresh")
+        return AuthenticatedIdentity(
+            self.subject, IdentityTokens("access2", "id2", None, 900, "Bearer")
+        )
+
     def verify_access_token(self, token: str) -> str:
         self._call("verify")
         return self.subject

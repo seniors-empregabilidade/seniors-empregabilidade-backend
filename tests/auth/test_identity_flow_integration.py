@@ -81,6 +81,46 @@ def test_login_and_me_use_subject_and_database_role(
     assert provider.calls == ["authenticate", "verify"]
 
 
+def test_refresh_returns_new_tokens_for_the_local_user(
+    client: TestClient, provider: FakeIdentityProvider
+) -> None:
+    add_user()
+    response = client.post(
+        "/api/v1/auth/refresh",
+        json={"refresh_token": "refresh", "access_token": "expired"},
+    )
+    assert response.status_code == 200
+    assert response.json()["access_token"] == "access2"
+    assert response.json()["refresh_token"] is None
+    assert response.json()["user_type"] == "candidate"
+    assert response.headers["Cache-Control"] == "no-store"
+    assert provider.calls == ["refresh"]
+
+
+@pytest.mark.parametrize("status", [AccountStatus.SUSPENDED, AccountStatus.BLOCKED])
+def test_refresh_is_refused_for_a_blocked_local_account(
+    client: TestClient, provider: FakeIdentityProvider, status: AccountStatus
+) -> None:
+    add_user(status=status)
+    response = client.post(
+        "/api/v1/auth/refresh",
+        json={"refresh_token": "refresh", "access_token": "expired"},
+    )
+    assert response.status_code == 403
+    assert "access_token" not in response.json()
+
+
+def test_refresh_with_an_invalid_token_is_401(
+    client: TestClient, provider: FakeIdentityProvider
+) -> None:
+    provider.error = InvalidCredentialsError()
+    response = client.post(
+        "/api/v1/auth/refresh",
+        json={"refresh_token": "refresh", "access_token": "expired"},
+    )
+    assert response.status_code == 401
+
+
 def test_same_email_cannot_authenticate_an_unlinked_local_user(
     client: TestClient, provider: FakeIdentityProvider
 ) -> None:

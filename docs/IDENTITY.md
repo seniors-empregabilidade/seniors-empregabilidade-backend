@@ -40,6 +40,7 @@ All paths start with `/api/v1`. Inspect full schemas in `/docs`.
 | Endpoint | Request | Success |
 | --- | --- | --- |
 | `POST /auth/login` | `email`, `password` | `200`: tokens, `expires_in`, `token_type`, local `user_id` and `user_type` |
+| `POST /auth/refresh` | `refresh_token`, `access_token` (the last one, even if expired) | `200`: same body as login; `refresh_token` is `null` unless the app client rotates them; `401` for an invalid, expired or revoked refresh token |
 | `GET /auth/me` | Bearer access token | `200`: `id`, `user_type`, nullable `company_status` |
 | `POST /email-verification/confirm` | `email`, `code` | `204`, no body |
 | `POST /email-verification/send` | `email` | `202`, no body; unknown/already confirmed addresses use the same response |
@@ -157,8 +158,10 @@ The frontend main still has no authentication screens. Its integration should us
 the shared API client and feature hooks: login/confirmation are mutations and
 `/auth/me` is a query. Keep tokens out of persisted query caches and clear user data
 when changing accounts. This API returns JSON tokens, not session cookies.
-Refresh/logout, MFA challenge handling and browser session storage
-remain separate work. Offline JWT verification does not detect token revocation
+The app client has a secret, so the refresh call needs a `SECRET_HASH` keyed by the pool's
+internal username. The adapter reads it from the `username` claim of the access token the
+client sends: the signature is verified, only the expiry is ignored. Logout (token
+revocation), MFA challenge handling and refresh-token rotation remain separate work. Offline JWT verification does not detect token revocation
 before expiration; local account blocking is checked on every protected request.
 
 References: [Cognito JWT verification](https://docs.aws.amazon.com/cognito-user-identity-pools/latest/DeveloperGuide/amazon-cognito-user-pools-using-tokens-verifying-a-jwt.html),
