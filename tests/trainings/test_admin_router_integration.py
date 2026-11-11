@@ -1,3 +1,4 @@
+from datetime import date, timedelta
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -6,7 +7,8 @@ from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.db.models import Skill, Training, TrainingJob, TrainingSkill
+from app.db.models import Job, Skill, Training, TrainingJob, TrainingSkill
+from app.db.models.enums import WorkMode
 from tests.trainings.conftest import ADMIN, CANDIDATE, COMPANY
 
 pytestmark = pytest.mark.integration
@@ -71,6 +73,30 @@ def test_creating_a_course_returns_it_hidden_with_its_relations(
         "Zz Training Excel",
     ]
     assert body["job_ids"] == [str(job_id)]
+    assert body["jobs"] == [{"id": str(job_id), "title": "Zz Training Synthetic Job"}]
+
+
+def test_a_course_names_its_jobs_by_title_and_keeps_job_ids_in_id_order(
+    training_client: TestClient, database_session: Session, job_id: UUID
+) -> None:
+    company_id = database_session.get_one(Job, job_id).company_id
+    earlier = Job(
+        company_id=company_id,
+        title="Zz Training Another Job",
+        description="Synthetic description.",
+        work_mode=WorkMode.REMOTE,
+        closing_date=date.today() + timedelta(days=30),
+    )
+    database_session.add(earlier)
+    database_session.commit()
+
+    body = create(training_client, job_ids=[str(job_id), str(earlier.id)])
+
+    assert [job["title"] for job in body["jobs"]] == [
+        "Zz Training Another Job",
+        "Zz Training Synthetic Job",
+    ]
+    assert body["job_ids"] == sorted([str(job_id), str(earlier.id)])
 
 
 def test_a_course_can_be_read_back(training_client: TestClient) -> None:

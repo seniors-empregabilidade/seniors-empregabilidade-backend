@@ -8,6 +8,7 @@ from app.candidates.router import router as candidates_router
 from app.companies.router import router as companies_router
 from app.contacts.router import router as contacts_router
 from app.indicators.router import router as indicators_router
+from app.jobs.admin_router import router as job_administration_router
 from app.jobs.router import router as jobs_router
 from app.notifications.router import router as notifications_router
 from app.password_reset.router import router as password_reset_router
@@ -26,6 +27,7 @@ api_router.include_router(candidates_router)
 api_router.include_router(companies_router)
 api_router.include_router(contacts_router)
 api_router.include_router(indicators_router)
+api_router.include_router(job_administration_router)
 api_router.include_router(jobs_router)
 api_router.include_router(notifications_router)
 api_router.include_router(password_reset_router)

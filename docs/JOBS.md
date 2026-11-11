@@ -44,6 +44,7 @@ All paths start with `/api/v1`.
 | `PATCH /jobs/{job_id}` | `200`: the job with its new title, description and skills |
 | `PATCH /jobs/{job_id}/status` | `200`: the job closed or reopened |
 | `GET /jobs/{job_id}/applications` | `200`: the job's applicants and automatic matches ranked by compatibility (US-19, US-20) |
+| `GET /admin/jobs` | `200`: every job, in any status, for an administrator to pick (US-22-T04) |
 
 `POST /jobs` receives:
 
@@ -198,6 +199,20 @@ any origin, and that only the owning company can read the list.
 rejected). It starts with the column default, which US-20-T04 turns on, and the
 professional can turn it off at any time. US-20-T04 reads it to decide who is
 applied automatically; turning it off stops new applications from the next cycle.
+
+## Administrator listing (US-22-T04)
+
+`GET /api/v1/admin/jobs` requires an administrator and lets the course editor
+relate courses to jobs. It lists every job, whatever its status, ordered by title,
+with `id`, `title`, `company_name` (the trade name, or the legal name when there
+is none) and `status`, plus the `total` of matching jobs.
+
+- `search`: optional, up to 150 characters; matches part of the title, ignoring
+  case, with `%` and `_` taken as text. A NUL character finds nothing.
+- `limit`: 1–100, default 20. `offset`: 0 or more.
+
+The administrative course responses (`/api/v1/admin/trainings`) return the
+related jobs as `jobs` (`id`, `title`, ordered by title) next to `job_ids`.
 
 ## Failures
 
