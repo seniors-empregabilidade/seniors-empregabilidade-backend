@@ -8,6 +8,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Index,
+    Integer,
     String,
     Text,
     text,
@@ -65,3 +66,8 @@ class Company(Base):
     )
     terms_version_accepted: Mapped[str | None] = mapped_column(String(20))
     terms_accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    photo_object_key: Mapped[str | None] = mapped_column(Text)
+    photo_filename: Mapped[str | None] = mapped_column(String(255))
+    photo_content_type: Mapped[str | None] = mapped_column(String(100))
+    photo_size_bytes: Mapped[int | None] = mapped_column(Integer)
+    photo_uploaded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
