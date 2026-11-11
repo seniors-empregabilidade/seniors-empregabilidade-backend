@@ -143,7 +143,46 @@ class CognitoIdentityProvider:
         subject = self.verify_access_token(tokens.access_token)
         return AuthenticatedIdentity(subject, tokens)
 
+    def refresh(
+        self, *, refresh_token: str, expired_access_token: str
+    ) -> AuthenticatedIdentity:
+        # The secret hash is keyed by the pool username, read from our own signed token.
+        username = self._access_claims(expired_access_token, verify_exp=False)[
+            "username"
+        ]
+        parameters = {"REFRESH_TOKEN": refresh_token}
+        if secret_hash := self._secret_hash(username):
+            parameters["SECRET_HASH"] = secret_hash["SecretHash"]
+        try:
+            response = self._client.initiate_auth(
+                ClientId=self._client_id,
+                AuthFlow="REFRESH_TOKEN_AUTH",
+                AuthParameters=parameters,
+            )
+        except ClientError as exc:
+            self._raise_provider_error(exc)
+        except BotoCoreError as exc:
+            raise IdentityProviderUnavailableError from exc
+        result = response.get("AuthenticationResult")
+        if not result:
+            raise AuthenticationChallengeRequiredError
+        try:
+            tokens = IdentityTokens(
+                access_token=result["AccessToken"],
+                id_token=result["IdToken"],
+                refresh_token=result.get("RefreshToken"),
+                expires_in=result["ExpiresIn"],
+                token_type=result["TokenType"],
+            )
+        except KeyError as exc:
+            raise IdentityProviderUnavailableError from exc
+        subject = self.verify_access_token(tokens.access_token)
+        return AuthenticatedIdentity(subject, tokens)
+
     def verify_access_token(self, token: str) -> str:
+        return self._access_claims(token, verify_exp=True)["sub"]
+
+    def _access_claims(self, token: str, *, verify_exp: bool) -> dict[str, str]:
         if len(token) > 16384:
             raise InvalidAccessTokenError
         try:
@@ -163,18 +202,22 @@ class CognitoIdentityProvider:
                 issuer=self._issuer,
                 options={
                     "verify_aud": False,
+                    "verify_exp": verify_exp,
                     "require": ["exp", "iat", "iss", "sub", "token_use", "client_id"],
                 },
             )
             subject = claims["sub"]
+            username = claims.get("username", subject)
             if (
                 claims["token_use"] != "access"
                 or claims["client_id"] != self._client_id
                 or not isinstance(subject, str)
                 or not subject.strip()
+                or not isinstance(username, str)
+                or not username.strip()
             ):
                 raise InvalidAccessTokenError
-            return subject
+            return {"sub": subject, "username": username}
         except PyJWKClientConnectionError as exc:
             raise IdentityProviderUnavailableError from exc
         except (jwt.PyJWTError, TypeError, ValueError) as exc:

@@ -9,6 +9,10 @@ class IdentityProvider(Protocol):
 
     def authenticate(self, *, email: str, password: str) -> AuthenticatedIdentity: ...
 
+    def refresh(
+        self, *, refresh_token: str, expired_access_token: str
+    ) -> AuthenticatedIdentity: ...
+
     def verify_access_token(self, token: str) -> str:
         """Return the subject only after verifying the token and its intended use."""
         ...
