@@ -215,7 +215,8 @@ def test_profile_has_no_photo_url(
     response = client.get(PROFILE_PATH, headers=AUTH)
 
     assert response.status_code == 200
-    assert "photo_url" not in response.json()
+    # No photo has been uploaded, so photo_url must be null (not absent).
+    assert response.json()["photo_url"] is None
 
 
 def test_automatic_application_can_be_turned_off_and_on(

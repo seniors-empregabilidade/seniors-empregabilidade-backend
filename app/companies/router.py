@@ -4,6 +4,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Path, Response, UploadFile, status
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import (
@@ -52,6 +53,7 @@ from app.companies.services.update_company_profile import update_company_profile
 from app.core.config import Settings, get_settings
 from app.core.errors import ProblemException
 from app.core.problem_details import PROBLEM_RESPONSE
+from app.db.models.company import Company
 from app.db.session import get_session
 from app.identity.dependencies import get_identity_provider
 from app.identity.provider import IdentityProvider
@@ -309,6 +311,50 @@ def delete_company_photo(
 ) -> None:
     """Remove the authenticated company's profile photo (idempotent)."""
     remove_company_photo(user.id, session=session, storage=storage)
+
+
+@router.get(
+    "/companies/{company_id}/photo",
+    status_code=302,
+    response_class=RedirectResponse,
+    responses={
+        302: {"description": "Redirect to a short-lived inline photo URL"},
+        404: PROBLEM_RESPONSE,
+        503: PROBLEM_RESPONSE,
+    },
+)
+def serve_company_photo(
+    company_id: UUID,
+    _: Annotated[CurrentUser, Depends(get_current_user)],
+    session: Annotated[Session, Depends(get_session)],
+    storage: Annotated[DocumentStorage, Depends(get_document_storage)],
+) -> RedirectResponse:
+    """Redirect to a short-lived inline URL for the company's profile photo.
+
+    Auth: any authenticated user (least-restrictive guard; candidates viewing
+    company profiles need access to company logos).
+    Returns 302 when a photo exists, 404 when no photo is stored, 503 when
+    storage is unavailable.
+    """
+    row = session.get(Company, company_id)
+    if row is None or row.photo_object_key is None:
+        raise ProblemException(
+            status_code=404,
+            title="Not Found",
+            code="photo_not_found",
+            detail="No profile photo is available for this company.",
+        )
+    # inline_url raises DocumentStorageUnavailableError (503) if storage is down.
+    url = storage.inline_url(
+        row.photo_object_key,
+        content_type=row.photo_content_type or "image/jpeg",
+        expires_in=300,
+    )
+    return RedirectResponse(
+        url=url,
+        status_code=302,
+        headers={"Cache-Control": "no-store, max-age=0"},
+    )
 
 
 @router.patch(

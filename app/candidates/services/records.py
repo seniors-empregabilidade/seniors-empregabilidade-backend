@@ -63,6 +63,7 @@ class ProfileRecord:
     certifications: tuple[CertificationRecord, ...]
     skills: tuple[CatalogSkill, ...]
     missing_fields: tuple[str, ...]
+    has_photo: bool = False
 
 
 def experience_record(experience: Experience) -> ExperienceRecord:

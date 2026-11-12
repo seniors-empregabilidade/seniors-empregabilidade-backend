@@ -178,6 +178,8 @@ def test_company_reads_its_own_profile(
         # Not edited yet: the login e-mail is shown as the contact.
         "contact_email": OWNER_LOGIN_EMAIL,
         "contact_phone": None,
+        # No photo uploaded yet.
+        "photo_url": None,
     }
 
 

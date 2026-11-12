@@ -7,6 +7,7 @@ from app.companies.schemas.company_profile_response import (
     CompanyProfileResponse,
 )
 from app.db.models import Address, Company
+from app.profile_photos.services.photo_url import photo_url_for
 
 
 def get_company_profile(session: Session, company_id: UUID) -> CompanyProfileResponse:
@@ -43,4 +44,9 @@ def company_profile_response(
         ),
         contact_email=company.contact_email or company.corporate_email,
         contact_phone=company.contact_phone,
+        photo_url=photo_url_for(
+            "company",
+            company.id,
+            has_photo=company.photo_object_key is not None,
+        ),
     )

@@ -107,4 +107,5 @@ def get_profile(user_id: UUID, *, session: Session) -> ProfileRecord:
             has_education=bool(education),
             has_skill=bool(skills),
         ),
+        has_photo=candidate.photo_object_key is not None,
     )

@@ -2,9 +2,14 @@ from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Response, UploadFile
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
-from app.auth.dependencies import require_administrator, require_candidate
+from app.auth.dependencies import (
+    get_current_user,
+    require_administrator,
+    require_candidate,
+)
 from app.auth.schemas.current_user import CurrentUser
 from app.candidates.domain.certificate_document import MAX_DOCUMENT_BYTES
 from app.candidates.domain.resume_completeness import resume_completion_percentage
@@ -61,7 +66,9 @@ from app.candidates.services.records import (
     ExperienceRecord,
     ProfileRecord,
 )
+from app.core.errors import ProblemException
 from app.core.problem_details import PROBLEM_RESPONSE
+from app.db.models.candidate import Candidate
 from app.db.session import get_session
 from app.identity.dependencies import get_identity_provider
 from app.identity.provider import IdentityProvider
@@ -70,6 +77,7 @@ from app.profile_photos.services.candidate_photo import (
     remove_candidate_photo,
     set_candidate_photo,
 )
+from app.profile_photos.services.photo_url import photo_url_for
 from app.skills.schemas import SkillResponse
 from app.skills.services import CatalogSkill
 from app.storage.dependencies import get_document_storage
@@ -194,6 +202,50 @@ def delete_photo(
     storage: Annotated[DocumentStorage, Depends(get_document_storage)],
 ) -> None:
     remove_candidate_photo(current_user.id, session=session, storage=storage)
+
+
+@router.get(
+    "/{candidate_id}/photo",
+    status_code=302,
+    response_class=RedirectResponse,
+    responses={
+        302: {"description": "Redirect to a short-lived inline photo URL"},
+        404: PROBLEM_RESPONSE,
+        503: PROBLEM_RESPONSE,
+    },
+)
+def serve_candidate_photo(
+    candidate_id: UUID,
+    _: Annotated[CurrentUser, Depends(get_current_user)],
+    session: Annotated[Session, Depends(get_session)],
+    storage: Annotated[DocumentStorage, Depends(get_document_storage)],
+) -> RedirectResponse:
+    """Redirect to a short-lived inline URL for the candidate's profile photo.
+
+    Auth: any authenticated user (least-restrictive guard; Task 7 relies on
+    companies being able to fetch candidate photos).
+    Returns 302 when a photo exists, 404 when no photo is stored, 503 when
+    storage is unavailable.
+    """
+    row = session.get(Candidate, candidate_id)
+    if row is None or row.photo_object_key is None:
+        raise ProblemException(
+            status_code=404,
+            title="Not Found",
+            code="photo_not_found",
+            detail="No profile photo is available for this professional.",
+        )
+    # inline_url raises DocumentStorageUnavailableError (503) if storage is down.
+    url = storage.inline_url(
+        row.photo_object_key,
+        content_type=row.photo_content_type or "image/jpeg",
+        expires_in=300,
+    )
+    return RedirectResponse(
+        url=url,
+        status_code=302,
+        headers={"Cache-Control": "no-store, max-age=0"},
+    )
 
 
 @router.post("/me/experiences", response_model=ExperienceResponse, status_code=201)
@@ -432,6 +484,7 @@ def _profile_response(record: ProfileRecord) -> ProfessionalProfileResponse:
         city=record.city,
         state=record.state,
         summary=record.summary,
+        photo_url=photo_url_for("candidate", record.id, has_photo=record.has_photo),
         accepts_automatic_application=record.accepts_automatic_application,
         experiences=[_experience_response(item) for item in record.experiences],
         education=[_education_response(item) for item in record.education],

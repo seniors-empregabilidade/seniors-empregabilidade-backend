@@ -22,3 +22,4 @@ class CompanyProfileResponse(BaseModel):
     address: CompanyAddressResponse | None
     contact_email: str
     contact_phone: str | None
+    photo_url: str | None = None

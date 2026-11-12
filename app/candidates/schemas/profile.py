@@ -67,6 +67,15 @@ class ProfessionalProfileResponse(BaseModel):
     city: str | None = None
     state: str | None = None
     summary: str | None = None
+    photo_url: str | None = Field(
+        default=None,
+        description=(
+            "Stable path to the serving endpoint for the profile photo "
+            "(e.g. /api/v1/professionals/{id}/photo), or null when no photo "
+            "has been uploaded.  Follows with a 302 redirect to a short-lived "
+            "inline URL when a photo exists."
+        ),
+    )
     accepts_automatic_application: bool = Field(
         description=(
             "Whether the professional allows the platform to apply on their behalf "
