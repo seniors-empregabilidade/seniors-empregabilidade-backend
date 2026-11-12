@@ -69,6 +69,7 @@ def read_applicant_profile(
         full_name=detail.full_name,
         city=detail.city,
         state=detail.state,
+        photo_url=detail.photo_url,
         summary=detail.summary,
         experiences=[
             ExperienceResponse(

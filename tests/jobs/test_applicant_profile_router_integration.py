@@ -113,6 +113,7 @@ def test_company_reads_only_professional_fields_of_its_applicant(
         "full_name",
         "city",
         "state",
+        "photo_url",
         "summary",
         "experiences",
         "education",

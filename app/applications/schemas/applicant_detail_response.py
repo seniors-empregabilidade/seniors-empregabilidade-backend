@@ -15,6 +15,7 @@ class ApplicantDetailResponse(BaseModel):
     full_name: str
     city: str | None
     state: str | None
+    photo_url: str | None
     summary: str | None
     experiences: list[ExperienceResponse]
     education: list[EducationResponse]

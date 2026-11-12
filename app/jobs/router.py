@@ -264,6 +264,7 @@ def _job_applicant_response(applicant: JobApplicant) -> JobApplicantResponse:
             full_name=applicant.profile.full_name,
             city=applicant.profile.city,
             state=applicant.profile.state,
+            photo_url=applicant.profile.photo_url,
         ),
     )
 

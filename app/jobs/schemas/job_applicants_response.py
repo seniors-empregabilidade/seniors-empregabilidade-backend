@@ -13,6 +13,7 @@ class ApplicantProfileResponse(BaseModel):
     full_name: str
     city: str | None
     state: str | None
+    photo_url: str | None
 
 
 class CompatibilitySkillResponse(BaseModel):

@@ -34,7 +34,7 @@ from tests.jobs.test_list_job_applicants_router_integration import (
 
 pytestmark = pytest.mark.integration
 
-SAFE_PROFILE_FIELDS = {"candidate_id", "full_name", "city", "state"}
+SAFE_PROFILE_FIELDS = {"candidate_id", "full_name", "city", "state", "photo_url"}
 
 
 def add_candidate(

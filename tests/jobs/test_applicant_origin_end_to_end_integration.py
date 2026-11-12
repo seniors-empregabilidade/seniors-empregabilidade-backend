@@ -50,7 +50,7 @@ SKILL_NAMES = (
     "Origin Flow Atendimento ao cliente",
     "Origin Flow Planilhas",
 )
-SAFE_PROFILE_FIELDS = {"candidate_id", "full_name", "city", "state"}
+SAFE_PROFILE_FIELDS = {"candidate_id", "full_name", "city", "state", "photo_url"}
 
 
 class OriginFlowIdentityProvider(FakeIdentityProvider):

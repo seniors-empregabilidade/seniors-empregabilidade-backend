@@ -29,6 +29,7 @@ from app.jobs.domain.policies.automatic_match_policy import is_automatic_match
 from app.jobs.domain.policies.job_compatibility_policy import JobCompatibilityPolicy
 from app.jobs.domain.value_objects.compatibility_score import CompatibilityScore
 from app.jobs.exceptions import JobNotFoundError
+from app.profile_photos.services.photo_url import photo_url_for
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,6 +44,7 @@ class ApplicantProfile:
     full_name: str
     city: str | None
     state: str | None
+    photo_url: str | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -149,6 +151,7 @@ def list_job_applicants(
             Candidate.full_name,
             Candidate.city,
             Candidate.state,
+            (Candidate.photo_object_key.isnot(None)).label("has_photo"),
         )
         .join(Candidate, Candidate.id == Application.candidate_id)
         .where(Application.job_id == job_id)
@@ -268,6 +271,7 @@ def _profile_rows_by_candidate(
             Candidate.full_name,
             Candidate.city,
             Candidate.state,
+            (Candidate.photo_object_key.isnot(None)).label("has_photo"),
         ).where(Candidate.id.in_(candidate_ids))
     ).all()
     return {row.candidate_id: row for row in rows}
@@ -349,6 +353,7 @@ def _profile(row: Row[Any]) -> ApplicantProfile:
         full_name=row.full_name,
         city=row.city,
         state=row.state,
+        photo_url=photo_url_for("candidate", row.candidate_id, has_photo=row.has_photo),
     )
 
 

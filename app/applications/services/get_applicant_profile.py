@@ -11,7 +11,8 @@ from app.candidates.services.records import (
     EducationRecord,
     ExperienceRecord,
 )
-from app.db.models import Application, Job
+from app.db.models import Application, Candidate, Job
+from app.profile_photos.services.photo_url import photo_url_for
 from app.skills.services import CatalogSkill
 
 
@@ -22,6 +23,7 @@ class ApplicantDetail:
     full_name: str
     city: str | None
     state: str | None
+    photo_url: str | None
     summary: str | None
     experiences: tuple[ExperienceRecord, ...]
     education: tuple[EducationRecord, ...]
@@ -33,13 +35,17 @@ def get_applicant_profile(
     session: Session, *, application_id: UUID, company_id: UUID
 ) -> ApplicantDetail:
     """Expose a résumé only to the company that owns its application job."""
-    candidate_id = session.scalar(
-        select(Application.candidate_id)
+    row = session.execute(
+        select(Application.candidate_id, Candidate.photo_object_key)
         .join(Job, Job.id == Application.job_id)
+        .join(Candidate, Candidate.id == Application.candidate_id)
         .where(Application.id == application_id, Job.company_id == company_id)
-    )
-    if candidate_id is None:
+    ).one_or_none()
+    if row is None:
         raise ApplicationNotFoundError
+
+    candidate_id: UUID = row.candidate_id
+    has_photo: bool = row.photo_object_key is not None
 
     profile = get_profile(candidate_id, session=session)
     return ApplicantDetail(
@@ -48,6 +54,7 @@ def get_applicant_profile(
         full_name=profile.full_name,
         city=profile.city,
         state=profile.state,
+        photo_url=photo_url_for("candidate", candidate_id, has_photo=has_photo),
         summary=profile.summary,
         experiences=profile.experiences,
         education=profile.education,
