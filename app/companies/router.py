@@ -3,7 +3,7 @@ from types import EllipsisType
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Path, Response, status
+from fastapi import APIRouter, Depends, Path, Response, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import (
@@ -55,6 +55,13 @@ from app.core.problem_details import PROBLEM_RESPONSE
 from app.db.session import get_session
 from app.identity.dependencies import get_identity_provider
 from app.identity.provider import IdentityProvider
+from app.profile_photos.domain.profile_photo import MAX_PHOTO_BYTES
+from app.profile_photos.services.company_photo import (
+    remove_company_photo,
+    set_company_photo,
+)
+from app.storage.dependencies import get_document_storage
+from app.storage.document_storage import DocumentStorage
 
 router = APIRouter(tags=["companies"])
 
@@ -261,6 +268,47 @@ def edit_company_profile(
             "A corporate email address is required.",
             field="contact_email",
         ) from exc
+
+
+@router.put(
+    "/companies/me/photo",
+    response_model=CompanyProfileResponse,
+    responses={code: PROBLEM_RESPONSE for code in (401, 403, 422, 503)},
+)
+def upload_company_photo(
+    file: UploadFile,
+    response: Response,
+    user: Annotated[CurrentUser, Depends(require_approved_company)],
+    session: Annotated[Session, Depends(get_session)],
+    storage: Annotated[DocumentStorage, Depends(get_document_storage)],
+) -> CompanyProfileResponse:
+    """Upload or replace the authenticated company's profile photo."""
+    response.headers["Cache-Control"] = "no-store"
+    # Reading one byte past the limit is enough to detect an oversized file.
+    content = file.file.read(MAX_PHOTO_BYTES + 1)
+    set_company_photo(
+        user.id,
+        file.filename,
+        content,
+        session=session,
+        storage=storage,
+    )
+    return get_company_profile(session, user.id)
+
+
+@router.delete(
+    "/companies/me/photo",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+    responses={code: PROBLEM_RESPONSE for code in (401, 403)},
+)
+def delete_company_photo(
+    user: Annotated[CurrentUser, Depends(require_approved_company)],
+    session: Annotated[Session, Depends(get_session)],
+    storage: Annotated[DocumentStorage, Depends(get_document_storage)],
+) -> None:
+    """Remove the authenticated company's profile photo (idempotent)."""
+    remove_company_photo(user.id, session=session, storage=storage)
 
 
 @router.patch(
