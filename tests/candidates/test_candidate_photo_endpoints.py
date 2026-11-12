@@ -296,3 +296,42 @@ def test_unavailable_storage_returns_503_and_does_not_persist(
     row = _row(users["owner"])
     assert row is not None
     assert row.photo_object_key is None
+
+
+# ---------------------------------------------------------------------------
+# /me scoping - cross-owner isolation
+# ---------------------------------------------------------------------------
+
+
+def test_other_candidate_cannot_mutate_owners_photo(
+    client: TestClient, storage: FakeDocumentStorage, users: dict[str, UUID]
+) -> None:
+    """PUT and DELETE /me/photo operate on the authenticated user's own row only.
+
+    A request authenticated as "other" must affect only "other"'s candidate row;
+    "owner"'s photo_object_key must remain unchanged.
+    """
+    owner_key = _seed_photo(users["owner"])
+    storage.objects[owner_key] = (PNG, "image/png")
+
+    # "other" uploads their own photo — this should only touch "other"'s row.
+    put_response = client.put(
+        PATH,
+        files={"file": ("intruder.png", PNG, "image/png")},
+        headers=auth("other"),
+    )
+    assert put_response.status_code == 200
+
+    # Owner's photo must be untouched.
+    owner_row = _row(users["owner"])
+    assert owner_row is not None
+    assert owner_row.photo_object_key == owner_key
+
+    # "other" deletes their own photo — again must not touch "owner".
+    delete_response = client.delete(PATH, headers=auth("other"))
+    assert delete_response.status_code == 204
+
+    # Owner's photo still untouched.
+    owner_row = _row(users["owner"])
+    assert owner_row is not None
+    assert owner_row.photo_object_key == owner_key

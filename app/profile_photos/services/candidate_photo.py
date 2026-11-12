@@ -3,6 +3,7 @@ from uuid import UUID, uuid4
 
 from sqlalchemy.orm import Session
 
+from app.candidates.exceptions import ProfileNotFoundError
 from app.db.models.candidate import Candidate
 from app.profile_photos.domain.profile_photo import (
     PhotoTooLargeValueError,
@@ -41,6 +42,9 @@ def set_candidate_photo(
 
     try:
         candidate = session.get(Candidate, user_id, with_for_update=True)
+        if candidate is None:
+            session.rollback()
+            raise ProfileNotFoundError()
     except Exception:
         session.rollback()
         raise
@@ -53,7 +57,6 @@ def set_candidate_photo(
         raise
 
     try:
-        assert candidate is not None
         replaced_key = candidate.photo_object_key
         candidate.photo_object_key = object_key
         candidate.photo_filename = photo.filename
