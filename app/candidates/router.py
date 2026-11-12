@@ -65,6 +65,11 @@ from app.core.problem_details import PROBLEM_RESPONSE
 from app.db.session import get_session
 from app.identity.dependencies import get_identity_provider
 from app.identity.provider import IdentityProvider
+from app.profile_photos.domain.profile_photo import MAX_PHOTO_BYTES
+from app.profile_photos.services.candidate_photo import (
+    remove_candidate_photo,
+    set_candidate_photo,
+)
 from app.skills.schemas import SkillResponse
 from app.skills.services import CatalogSkill
 from app.storage.dependencies import get_document_storage
@@ -159,6 +164,36 @@ def edit_profile(
 ) -> ProfessionalProfileResponse:
     response.headers["Cache-Control"] = "no-store"
     return _profile_response(update_profile(current_user.id, request, session=session))
+
+
+@router.put("/me/photo", response_model=ProfessionalProfileResponse)
+def upload_photo(
+    file: UploadFile,
+    current_user: Annotated[CurrentUser, Depends(require_candidate)],
+    session: Annotated[Session, Depends(get_session)],
+    storage: Annotated[DocumentStorage, Depends(get_document_storage)],
+    response: Response,
+) -> ProfessionalProfileResponse:
+    response.headers["Cache-Control"] = "no-store"
+    # Reading one byte past the limit is enough to detect an oversized file.
+    content = file.file.read(MAX_PHOTO_BYTES + 1)
+    set_candidate_photo(
+        current_user.id,
+        file.filename,
+        content,
+        session=session,
+        storage=storage,
+    )
+    return _profile_response(get_profile(current_user.id, session=session))
+
+
+@router.delete("/me/photo", status_code=204, response_class=Response)
+def delete_photo(
+    current_user: Annotated[CurrentUser, Depends(require_candidate)],
+    session: Annotated[Session, Depends(get_session)],
+    storage: Annotated[DocumentStorage, Depends(get_document_storage)],
+) -> None:
+    remove_candidate_photo(current_user.id, session=session, storage=storage)
 
 
 @router.post("/me/experiences", response_model=ExperienceResponse, status_code=201)
