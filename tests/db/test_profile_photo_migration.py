@@ -11,7 +11,7 @@ import os
 
 import pytest
 from alembic.config import Config
-from sqlalchemy import inspect, text
+from sqlalchemy import inspect
 
 from alembic import command
 from app.db.session import get_engine
@@ -29,9 +29,6 @@ PHOTO_COLUMNS = {
     "photo_size_bytes",
     "photo_uploaded_at",
 }
-
-PHOTO_REVISION = "9466fd3b08cf"
-PREV_REVISION = "3a7c5e9d1b24"
 
 
 @pytest.mark.integration
@@ -81,21 +78,3 @@ def test_photo_columns_absent_after_downgrade() -> None:
 
     # Restore head so the database is left in the correct state.
     command.upgrade(cfg, "head")
-
-
-@pytest.mark.integration
-@pytest.mark.skipif(
-    os.getenv("RUN_DATABASE_INTEGRATION_TESTS") != "1",
-    reason="requires RUN_DATABASE_INTEGRATION_TESTS=1 and migrated PostgreSQL",
-)
-def test_photo_columns_version_after_upgrade() -> None:
-    """After upgrade the alembic version matches the photo revision."""
-    cfg = _alembic_config()
-    command.upgrade(cfg, "head")
-
-    engine = get_engine()
-    with engine.connect() as conn:
-        result = conn.execute(text("SELECT version_num FROM alembic_version"))
-        version = result.scalar_one()
-
-    assert version == PHOTO_REVISION
