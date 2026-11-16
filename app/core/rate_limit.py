@@ -1,6 +1,6 @@
 """Request limits for the routes that send email or check a password.
 
-`/password-reset/send` and `/accounts/send` trigger email through Cognito,
+`/password-reset/send` and `/email-verification/send` trigger email through Cognito,
 whose default sender is capped at 50 messages a day. Fifty requests in a loop
 would break sign-up and password recovery for the rest of the day. WAF, the
 native answer, is denied by the account's service control policy.

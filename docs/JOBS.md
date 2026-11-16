@@ -1,11 +1,13 @@
 # Job publishing and management (US-17, US-18)
 
 An approved company publishes jobs, lists them in "Minhas vagas", edits them and
-closes or reopens them. Every endpoint requires `require_approved_company`: an
-anonymous request gets `401`, and a candidate, an administrator or a company
-that is not approved gets `403 approved_company_required`. A company reaches
-only its own jobs: another company's job answers `404 job_not_found`, the same
-as a job that does not exist.
+closes or reopens them. Every company endpoint requires
+`require_approved_company`: an anonymous request gets `401`, and a candidate, an
+administrator or a company that is not approved gets
+`403 approved_company_required`. `GET /admin/jobs` is the exception: it requires
+an administrator, see [Administrator listing](#administrator-listing-us-22-t04).
+A company reaches only its own jobs: another company's job answers
+`404 job_not_found`, the same as a job that does not exist.
 
 Candidates find published jobs through `GET /jobs`, described in
 [JOB_SEARCH.md](JOB_SEARCH.md), and read one job through
