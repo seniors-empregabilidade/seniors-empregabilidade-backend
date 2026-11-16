@@ -41,9 +41,14 @@ class KeyValueFormatter(logging.Formatter):
 def configure_logging(level: str) -> None:
     handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(KeyValueFormatter())
+    handler._app_handler = True  # type: ignore[attr-defined]
 
     root_logger = logging.getLogger()
-    root_logger.handlers.clear()
+    # Remove only the handlers previously installed by this function,
+    # leaving any foreign handler (e.g. pytest's caplog) intact.
+    root_logger.handlers = [
+        h for h in root_logger.handlers if not getattr(h, "_app_handler", False)
+    ]
     root_logger.addHandler(handler)
     root_logger.setLevel(level)
 

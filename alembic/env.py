@@ -12,7 +12,17 @@ assert models
 config = context.config
 
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    import logging
+
+    # Preserve the existing logging configuration so that fileConfig does not
+    # reset the root logger level or remove handlers installed by the app or
+    # by test harnesses (e.g. pytest's caplog LogCaptureHandler).
+    _root = logging.getLogger()
+    _saved_level = _root.level
+    _saved_handlers = list(_root.handlers)
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
+    _root.handlers = _saved_handlers
+    _root.setLevel(_saved_level)
 
 config.set_main_option(
     "sqlalchemy.url",
