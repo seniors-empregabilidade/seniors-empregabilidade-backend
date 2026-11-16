@@ -208,3 +208,8 @@ can be contacted, the record it keeps and how the e-mail protects personal data.
 
 See [US-32 candidate home](docs/CANDIDATE_HOME.md) for the three existing
 endpoints that feed the home page cards and what this task added to them.
+
+## Training catalog
+
+See [training catalog](docs/TRAININGS.md) for the candidate course search and the
+administrator routes that register courses and relate them to skills and jobs.
