@@ -3,7 +3,7 @@ from types import EllipsisType
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Path, Response, status
+from fastapi import APIRouter, Depends, Path, Request, Response, status
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import (
@@ -52,6 +52,7 @@ from app.companies.services.update_company_profile import update_company_profile
 from app.core.config import Settings, get_settings
 from app.core.errors import ProblemException
 from app.core.problem_details import PROBLEM_RESPONSE
+from app.core.rate_limit import REGISTRATION_LIMIT, limiter
 from app.db.session import get_session
 from app.identity.dependencies import get_identity_provider
 from app.identity.provider import IdentityProvider
@@ -145,8 +146,10 @@ def get_registry_record(
         503: PROBLEM_RESPONSE,
     },
 )
+@limiter.limit(REGISTRATION_LIMIT)
 def create_company(
-    request: CompanyRegistrationRequest,
+    request: Request,
+    payload: CompanyRegistrationRequest,
     response: Response,
     session: Annotated[Session, Depends(get_session)],
     registry: Annotated[CompanyRegistry, Depends(get_company_registry)],
@@ -156,7 +159,7 @@ def create_company(
     response.headers["Cache-Control"] = "no-store"
     try:
         return register_company(
-            request,
+            payload,
             session=session,
             registry=registry,
             identity_provider=identity_provider,

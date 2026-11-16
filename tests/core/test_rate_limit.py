@@ -1,11 +1,17 @@
 import logging
+from uuid import UUID
 
 import pytest
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
+from app.auth.dependencies import require_approved_company
+from app.auth.schemas.current_user import CurrentUser
+from app.companies.router import get_company_registry
 from app.core.config import get_settings
 from app.core.rate_limit import client_identifier, limiter
+from app.db.models.enums import CompanyStatus, UserType
+from app.db.session import get_session
 from app.identity.dependencies import get_identity_provider
 from tests.identity.fakes import FakeIdentityProvider
 
@@ -88,3 +94,74 @@ def test_the_sixth_consecutive_call_is_refused_with_problem_details(
     assert body["instance"] == path
 
     limiter.reset()
+
+
+_PROFESSIONAL = {
+    "full_name": "Synthetic Person",
+    "cpf": "111.444.777-35",
+    "birth_date": "1970-01-01",
+    "phone": "+55 51 99999-9999",
+    "email": "person@example.com",
+    "password": "LocalDemoOnly!2026",
+    "terms_version_accepted": "v1",
+    "city": "Porto Alegre",
+    "state": "RS",
+}
+_COMPANY = {
+    "cnpj": "11222333000181",
+    "display_name": "Synthetic Company",
+    "address": {
+        "street": "Synthetic Street",
+        "number": "1",
+        "neighborhood": "Test",
+        "city": "Test",
+        "state": "RS",
+        "zip_code": "90000000",
+    },
+    "corporate_email": "registration@company.example.invalid",
+    "password": "SyntheticPass!2026",
+    "terms_accepted": True,
+    "terms_version": "v1",
+}
+_CONTACT = {
+    "job_id": "11111111-1111-4111-8111-111111111111",
+    "candidate_id": "22222222-2222-4222-8222-222222222222",
+    "message": "Synthetic message",
+}
+_REFRESH = {"refresh_token": "synthetic-refresh", "access_token": "synthetic-access"}
+
+
+@pytest.mark.parametrize(
+    ("path", "payload", "allowed"),
+    [
+        ("/api/v1/professionals", _PROFESSIONAL, 5),
+        ("/api/v1/companies", _COMPANY, 5),
+        ("/api/v1/contacts", _CONTACT, 10),
+        ("/api/v1/auth/refresh", _REFRESH, 60),
+    ],
+)
+def test_email_sending_and_session_routes_are_limited_per_origin(
+    application: FastAPI,
+    client: TestClient,
+    path: str,
+    payload: dict[str, object],
+    allowed: int,
+) -> None:
+    # The limit runs before the handler body, so a session that fails on use is
+    # enough: the allowed calls end in 500 and only the next one must be 429.
+    application.dependency_overrides[get_session] = object
+    application.dependency_overrides[get_identity_provider] = FakeIdentityProvider
+    application.dependency_overrides[get_company_registry] = object
+    application.dependency_overrides[require_approved_company] = lambda: CurrentUser(
+        id=UUID("33333333-3333-4333-8333-333333333333"),
+        user_type=UserType.COMPANY,
+        company_status=CompanyStatus.APPROVED,
+    )
+
+    statuses = [client.post(path, json=payload).status_code for _ in range(allowed)]
+    refused = client.post(path, json=payload)
+
+    assert 429 not in statuses
+    assert refused.status_code == 429
+    assert refused.json()["code"] == "rate_limited"
+    application.dependency_overrides.clear()

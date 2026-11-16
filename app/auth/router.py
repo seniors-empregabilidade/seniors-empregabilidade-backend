@@ -10,7 +10,7 @@ from app.auth.schemas.login_response import LoginResponse
 from app.auth.schemas.refresh_request import RefreshRequest
 from app.auth.services.login import authenticate_user, refresh_session
 from app.core.problem_details import PROBLEM_RESPONSE
-from app.core.rate_limit import SENSITIVE_LIMIT, limiter
+from app.core.rate_limit import REFRESH_LIMIT, SENSITIVE_LIMIT, limiter
 from app.db.session import get_session
 from app.identity.dependencies import get_identity_provider
 from app.identity.provider import IdentityProvider
@@ -39,7 +39,9 @@ def login(
 
 
 @router.post("/refresh", response_model=LoginResponse)
+@limiter.limit(REFRESH_LIMIT)
 def refresh(
+    request: Request,
     payload: RefreshRequest,
     response: Response,
     provider: Annotated[IdentityProvider, Depends(get_identity_provider)],
