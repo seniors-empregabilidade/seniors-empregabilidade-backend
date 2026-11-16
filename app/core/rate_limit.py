@@ -17,6 +17,12 @@ from app.core.config import get_settings
 _logger = logging.getLogger("app.rate_limit")
 
 SENSITIVE_LIMIT = "5/minute"
+# Sign-up also makes Cognito send a code, so it shares the daily-quota concern.
+REGISTRATION_LIMIT = "5/minute;20/day"
+# A session renews itself, so this only stops a loop hammering Cognito.
+REFRESH_LIMIT = "60/minute"
+# Each contact e-mails a professional; this caps spam from one origin.
+CONTACT_LIMIT = "10/minute;100/day"
 
 
 def client_identifier(request: Request) -> str:

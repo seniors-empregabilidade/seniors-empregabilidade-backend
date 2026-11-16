@@ -1,7 +1,7 @@
 from typing import Annotated, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, Response, UploadFile
+from fastapi import APIRouter, Depends, Query, Request, Response, UploadFile
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import require_administrator, require_candidate
@@ -62,6 +62,7 @@ from app.candidates.services.records import (
     ProfileRecord,
 )
 from app.core.problem_details import PROBLEM_RESPONSE
+from app.core.rate_limit import REGISTRATION_LIMIT, limiter
 from app.db.session import get_session
 from app.identity.dependencies import get_identity_provider
 from app.identity.provider import IdentityProvider
@@ -78,13 +79,15 @@ router = APIRouter(
 
 
 @router.post("", response_model=ProfessionalRegistrationResponse, status_code=201)
+@limiter.limit(REGISTRATION_LIMIT)
 def create_professional(
-    request: ProfessionalRegistrationRequest,
+    request: Request,
+    payload: ProfessionalRegistrationRequest,
     session: Annotated[Session, Depends(get_session)],
     identity_provider: Annotated[IdentityProvider, Depends(get_identity_provider)],
 ) -> ProfessionalRegistrationResponse:
     registered = register_professional(
-        request,
+        payload,
         session=session,
         identity_provider=identity_provider,
     )
