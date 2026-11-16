@@ -17,12 +17,16 @@ if config.config_file_name is not None:
     # Preserve the existing logging configuration so that fileConfig does not
     # reset the root logger level or remove handlers installed by the app or
     # by test harnesses (e.g. pytest's caplog LogCaptureHandler).
+    # Only restore when handlers already exist (test/app context): a fresh CLI
+    # run starts with no handlers, so we let fileConfig's config stand instead
+    # of restoring an empty list and silencing alembic's progress output.
     _root = logging.getLogger()
     _saved_level = _root.level
     _saved_handlers = list(_root.handlers)
     fileConfig(config.config_file_name, disable_existing_loggers=False)
-    _root.handlers = _saved_handlers
-    _root.setLevel(_saved_level)
+    if _saved_handlers:
+        _root.handlers = _saved_handlers
+        _root.setLevel(_saved_level)
 
 config.set_main_option(
     "sqlalchemy.url",
